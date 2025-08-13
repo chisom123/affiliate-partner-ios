@@ -1,17 +1,34 @@
-//
-//  SocialStar_PartnersApp.swift
-//  SocialStar Partners
-//
-//  Created by Ezi Agu on 22/05/1404 AP.
-//
-
 import SwiftUI
+import Firebase
+import FirebaseAuth
 
 @main
-struct SocialStar_PartnersApp: App {
+struct SocialStarPartnersApp: App {
+    @State private var isAuthenticated = false
+    
+    init() {
+        FirebaseApp.configure()
+    }
+    
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            Group {
+                if isAuthenticated {
+                    DashboardView()
+                } else {
+                    WelcomeView()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .authStateDidChange)) { _ in
+                checkAuthState()
+            }
+            .onAppear {
+                checkAuthState()
+            }
         }
+    }
+    
+    private func checkAuthState() {
+        isAuthenticated = Auth.auth().currentUser != nil
     }
 }
