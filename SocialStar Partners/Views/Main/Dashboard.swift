@@ -11,7 +11,7 @@ struct DashboardView: View {
                 VStack(spacing: 20) {
                     // Header with Settings Button
                     HStack {
-                        Text("SocialStar Partners Dashboard")
+                        Text("SocialStar Partners")
                             .font(.system(size: 24, weight: .bold))
                         
                         Spacer()
