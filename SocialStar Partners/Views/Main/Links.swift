@@ -6,36 +6,68 @@ struct LinksView: View {
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    if !viewModel.errorMessage.isEmpty {
-                        Text(viewModel.errorMessage)
-                            .foregroundColor(.red)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal)
-                    }
-                    
-                    // Rating Links List
-                    if viewModel.ratingLinks.isEmpty {
-                        VStack {
-                            Text("No rating links yet")
-                                .font(.system(size: 18, weight: .semibold))
-                            Text("Create your first link to start earning")
-                                .font(.system(size: 16))
-                                .foregroundColor(.gray)
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(spacing: 20) {
+        
+                        // Rating Links List
+                        if viewModel.ratingLinks.isEmpty {
+                            // Centered empty state
+                            VStack(spacing: 16) {
+                                Image(systemName: "link.circle")
+                                    .font(.system(size: 48))
+                                    .foregroundColor(Color.gray.opacity(0.5))
+                                
+                                VStack(spacing: 8) {
+                                    Text("No Rating Links Yet")
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .foregroundColor(.primary)
+                                    
+                                    Text("Create your first link to start earning")
+                                        .font(.system(size: 16))
+                                        .foregroundColor(.secondary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                
+                                Button(action: {
+                                    viewModel.createNewLink { newLink in
+                                        selectedLinkForInstructions = newLink
+                                    }
+                                }) {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "plus.circle.fill")
+                                            .font(.system(size: 16, weight: .medium))
+                                        Text("New Link")
+                                            .font(.system(size: 16, weight: .semibold))
+                                    }
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 24)
+                                    .padding(.vertical, 12)
+                                    .background(Color(hex: "4169E1"))
+                                    .cornerRadius(200)
+                                }
+                                .disabled(viewModel.isLoading)
+                                .opacity(viewModel.isLoading ? 0.6 : 1.0)
+                                .padding(.top)
+                            }
+                            .padding(.vertical, 50)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 20)
+                            .background(Color.gray.opacity(0.05))
+                            .cornerRadius(12)
+                            
+                           
+                        } else {
+                            ForEach(viewModel.ratingLinks.sorted(by: { $0.createdAt > $1.createdAt })) { link in
+                                LinkCard(link: link, onUseLink: {
+                                    selectedLinkForInstructions = link
+                                })
+                            }
                         }
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(8)
-                    } else {
-                        ForEach(viewModel.ratingLinks.sorted(by: { $0.createdAt > $1.createdAt })) { link in
-                            LinkCard(link: link, onUseLink: {
-                                selectedLinkForInstructions = link
-                            })
-                        }
                     }
+                    .padding(.vertical)
+                    .padding(.horizontal)
                 }
-                .padding()
             }
             .navigationTitle("Links")
             .toolbar {
