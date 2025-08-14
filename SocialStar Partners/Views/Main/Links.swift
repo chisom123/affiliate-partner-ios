@@ -8,20 +8,6 @@ struct LinksView: View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Create New Link Button
-                    Button("Create New Link") {
-                        viewModel.createNewLink { newLink in
-                            // Automatically show instructions for the new link
-                            selectedLinkForInstructions = newLink
-                        }
-                    }
-                    .font(.system(size: 18, weight: .bold))
-                    .padding()
-                    .background(viewModel.isLoading ? Color.gray : Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-                    .disabled(viewModel.isLoading)
-                    
                     if !viewModel.errorMessage.isEmpty {
                         Text(viewModel.errorMessage)
                             .foregroundColor(.red)
@@ -52,6 +38,20 @@ struct LinksView: View {
                 .padding()
             }
             .navigationTitle("Links")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        viewModel.createNewLink { newLink in
+                            selectedLinkForInstructions = newLink
+                        }
+                    }) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(viewModel.isLoading ? .gray : Color(hex: "4169E1"))
+                    }
+                    .disabled(viewModel.isLoading)
+                }
+            }
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
