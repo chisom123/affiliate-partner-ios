@@ -48,6 +48,8 @@ struct AffiliateData {
     let totalRatings: Int
     let createdAt: Date
     let status: String
+    let balance: Double // Available for withdrawal
+    let totalWithdrawn: Double // Total amount withdrawn (lifetime)
 }
 
 // MARK: - Firestore Conversion
@@ -66,5 +68,15 @@ extension AffiliateData {
         self.totalRatings = data["totalRatings"] as? Int ?? 0
         self.createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
         self.status = data["status"] as? String ?? "active"
+        self.balance = data["balance"] as? Double ?? 0.0
+        self.totalWithdrawn = data["totalWithdrawn"] as? Double ?? 0.0
+    }
+    
+    var canWithdraw: Bool {
+        balance >= 0.25
+    }
+    
+    var lifetimeEarnings: Double {
+        balance + totalWithdrawn
     }
 }

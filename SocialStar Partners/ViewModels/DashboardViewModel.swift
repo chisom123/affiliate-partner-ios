@@ -1,5 +1,6 @@
 import Foundation
 import Firebase
+import Combine
 import FirebaseAuth
 
 class DashboardViewModel: ObservableObject {
@@ -9,6 +10,7 @@ class DashboardViewModel: ObservableObject {
     @Published var errorMessage = ""
     
     private var linkListener: ListenerRegistration?
+    private var affiliateListener: ListenerRegistration?
     
     var totalEarnings: Double {
         ratingLinks.reduce(0) { $0 + $1.earnings }
@@ -20,28 +22,31 @@ class DashboardViewModel: ObservableObject {
     
     deinit {
         linkListener?.remove()
+        affiliateListener?.remove()
     }
     
     func loadData() {
         guard let user = Auth.auth().currentUser else { return }
         
-        loadAffiliateData(userId: user.uid)
+        setupAffiliateListener(userId: user.uid)
         setupRatingLinksListener(userId: user.uid)
     }
     
-    private func loadAffiliateData(userId: String) {
+    private func setupAffiliateListener(userId: String) {
         let db = Firestore.firestore()
         
-        db.collection("affiliates").document(userId).getDocument { [weak self] document, error in
-            DispatchQueue.main.async {
-                if let document = document,
-                   document.exists,
-                   let data = document.data(),
-                   let affiliateData = AffiliateData(data: data) {
-                    self?.affiliateData = affiliateData
+        // Real-time listener for affiliate data (balance updates)
+        affiliateListener = db.collection("affiliates").document(userId)
+            .addSnapshotListener { [weak self] document, error in
+                DispatchQueue.main.async {
+                    if let document = document,
+                       document.exists,
+                       let data = document.data(),
+                       let affiliateData = AffiliateData(data: data) {
+                        self?.affiliateData = affiliateData
+                    }
                 }
             }
-        }
     }
     
     private func setupRatingLinksListener(userId: String) {

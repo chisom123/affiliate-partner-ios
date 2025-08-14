@@ -69,7 +69,9 @@ struct NameView: View {
             "createdAt": Timestamp(),
             "status": "active",
             "paymentInfo": NSNull(),
-            "payoutHistory": []
+            "payoutHistory": [],
+            "balance": 0.0,
+            "totalWithdrawn": 0.0
         ]
         
         db.collection("affiliates").document(user.uid).setData(affiliateData) { error in
