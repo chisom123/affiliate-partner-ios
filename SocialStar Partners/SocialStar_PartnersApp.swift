@@ -14,7 +14,7 @@ struct SocialStarPartnersApp: App {
         WindowGroup {
             Group {
                 if isAuthenticated {
-                    DashboardView()
+                    MainTabView()
                 } else {
                     WelcomeView()
                 }

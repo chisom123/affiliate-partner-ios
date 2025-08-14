@@ -1,46 +1,13 @@
 import SwiftUI
 
-struct DashboardView: View {
+struct LinksView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @State private var selectedLinkForInstructions: RatingLink?
-    @State private var showingSettings = false
     
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Header with Settings Button
-                    HStack {
-                        Text("SocialStar Partners")
-                            .font(.system(size: 24, weight: .bold))
-                        
-                        Spacer()
-                        
-                        Button("Settings") {
-                            showingSettings = true
-                        }
-                        .font(.system(size: 16))
-                    }
-                    .padding(.top)
-                    
-                    // Earnings Summary
-                    if viewModel.affiliateData != nil {
-                        VStack(spacing: 10) {
-                            Text("Total Earnings")
-                                .font(.system(size: 16))
-                            
-                            Text("$\(viewModel.totalEarnings, specifier: "%.2f")")
-                                .font(.system(size: 32, weight: .bold))
-                            
-                            Text("\(viewModel.totalRatings) total ratings")
-                                .font(.system(size: 14))
-                                .foregroundColor(.gray)
-                        }
-                        .padding()
-                        .background(Color.gray.opacity(0.1))
-                        .cornerRadius(8)
-                    }
-                    
                     // Create New Link Button
                     Button("Create New Link") {
                         viewModel.createNewLink()
@@ -60,10 +27,6 @@ struct DashboardView: View {
                     }
                     
                     // Rating Links List
-                    Text("Your Rating Links")
-                        .font(.system(size: 20, weight: .bold))
-                        .padding(.top)
-                    
                     if viewModel.ratingLinks.isEmpty {
                         VStack {
                             Text("No rating links yet")
@@ -85,7 +48,7 @@ struct DashboardView: View {
                 }
                 .padding()
             }
-            .navigationBarHidden(true)
+            .navigationTitle("Links")
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
@@ -93,9 +56,6 @@ struct DashboardView: View {
         }
         .sheet(item: $selectedLinkForInstructions) { link in
             UseLinkInstructionsView(link: link)
-        }
-        .sheet(isPresented: $showingSettings) {
-            SettingsView()
         }
     }
 }
@@ -165,7 +125,7 @@ struct LinkCard: View {
                     }
                 }
                 
-                Text("Average Rating")
+                Text("Average from \(link.ratingCount) rating\(link.ratingCount != 1 ? "s" : "")")
                     .font(.system(size: 12))
                     .foregroundColor(.gray)
             }
