@@ -10,7 +10,7 @@ struct SignInView: View {
     
     var body: some View {
         VStack(spacing: 30) {
-            Text("Sign In")
+            Text("Welcome Back")
                 .font(.system(size: 24, weight: .bold))
             
             VStack(spacing: 15) {

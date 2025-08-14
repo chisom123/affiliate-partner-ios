@@ -59,7 +59,7 @@ struct WelcomeView: View {
                             Button(action: {
                                 navigateToSignIn = true
                             }) {
-                                Text("Sign In")
+                                Text("Log In")
                                     .font(.system(size: 18, weight: .semibold))
                                     .foregroundColor(Color(hex: "4169E1"))
                                     .frame(maxWidth: .infinity)
