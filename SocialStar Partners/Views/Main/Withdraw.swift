@@ -11,6 +11,14 @@ struct WithdrawView: View {
     @State private var bankName = ""
     @State private var accountNumber = ""
     @State private var routingNumber = ""
+    @State private var selectedAccountType = "checking" // Default to checking
+    
+    // Address fields
+    @State private var addressLine1 = ""
+    @State private var city = ""
+    @State private var selectedState = ""
+    @State private var zipCode = ""
+    
     @State private var showingConfirmation = false
     
     var body: some View {
@@ -59,7 +67,7 @@ struct WithdrawView: View {
                 
                 // Bank Account Section
                 Section {
-                    TextField("Full Name", text: $accountHolderName)
+                    TextField("Full Name (as on bank account)", text: $accountHolderName)
                         .textInputAutocapitalization(.words)
                     
                     TextField("Bank Name", text: $bankName)
@@ -70,10 +78,104 @@ struct WithdrawView: View {
                     
                     TextField("Routing Number", text: $routingNumber)
                         .keyboardType(.numberPad)
+                    
+                    // Account Type Picker
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Account Type")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Menu {
+                            Button(action: {
+                                selectedAccountType = "checking"
+                            }) {
+                                HStack {
+                                    Text("Checking")
+                                    Spacer()
+                                    if selectedAccountType == "checking" {
+                                        Image(systemName: "checkmark")
+                                            .foregroundColor(.blue)
+                                    }
+                                }
+                            }
+                            
+                            Button(action: {
+                                selectedAccountType = "savings"
+                            }) {
+                                HStack {
+                                    Text("Savings")
+                                    Spacer()
+                                    if selectedAccountType == "savings" {
+                                        Image(systemName: "checkmark")
+                                            .foregroundColor(.blue)
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Text(selectedAccountType.isEmpty ? "Select Account Type" : selectedAccountType.capitalized)
+                                    .foregroundColor(selectedAccountType.isEmpty ? .secondary : .primary)
+                                Spacer()
+                                Image(systemName: "chevron.down")
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
+                            }
+                            .padding(.vertical, 8)
+                        }
+                    }
                 } header: {
                     Text("Bank Account Details")
+                }
+                
+                // Address Section
+                Section {
+                    TextField("Address Line 1", text: $addressLine1)
+                        .textInputAutocapitalization(.words)
+                    
+                    TextField("City", text: $city)
+                        .textInputAutocapitalization(.words)
+                    
+                    // State Picker
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("State")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Menu {
+                            ForEach(USState.allStates, id: \.code) { state in
+                                Button(action: {
+                                    selectedState = state.code
+                                }) {
+                                    HStack {
+                                        Text(state.name)
+                                        Spacer()
+                                        if selectedState == state.code {
+                                            Image(systemName: "checkmark")
+                                                .foregroundColor(.blue)
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Text(selectedState.isEmpty ? "Select State" :
+                                     USState.allStates.first(where: { $0.code == selectedState })?.name ?? selectedState)
+                                    .foregroundColor(selectedState.isEmpty ? .secondary : .primary)
+                                Spacer()
+                                Image(systemName: "chevron.down")
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
+                            }
+                            .padding(.vertical, 8)
+                        }
+                    }
+                    
+                    TextField("ZIP Code", text: $zipCode)
+                        .keyboardType(.numberPad)
+                } header: {
+                    Text("US Address (Required for International Transfer)")
                 } footer: {
-                    Text("Your bank details are encrypted and stored securely")
+                    Text("Your address is required for transfers from the UK to US bank accounts")
                 }
                 
                 // Submit Section
@@ -133,7 +235,7 @@ struct WithdrawView: View {
                 submitWithdrawal()
             }
         } message: {
-            Text("Withdraw $\(withdrawAmount) to ****\(accountNumber.suffix(4))?")
+            Text("Withdraw $\(withdrawAmount) to \(selectedAccountType.capitalized) account ****\(accountNumber.suffix(4)) in \(city), \(selectedStateName)?")
         }
     }
     
@@ -155,6 +257,10 @@ struct WithdrawView: View {
         withdrawalViewModel.pendingWithdrawalAmount()
     }
     
+    private var selectedStateName: String {
+        USState.allStates.first(where: { $0.code == selectedState })?.name ?? selectedState
+    }
+    
     private var isFormValid: Bool {
         // Check withdrawal amount
         guard withdrawalAmount >= 0.25 else { return false }
@@ -163,11 +269,16 @@ struct WithdrawView: View {
         // Check daily limit
         guard canWithdrawToday else { return false }
         
-        // Check all fields are filled
+        // Check all fields are filled (including account type)
         guard !accountHolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !bankName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !accountNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !routingNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+              !routingNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !selectedAccountType.isEmpty,
+              !addressLine1.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !city.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !selectedState.isEmpty,
+              !zipCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return false
         }
         
@@ -176,7 +287,12 @@ struct WithdrawView: View {
             accountHolderName: accountHolderName.trimmingCharacters(in: .whitespacesAndNewlines),
             bankName: bankName.trimmingCharacters(in: .whitespacesAndNewlines),
             accountNumber: accountNumber.trimmingCharacters(in: .whitespacesAndNewlines),
-            routingNumber: routingNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+            routingNumber: routingNumber.trimmingCharacters(in: .whitespacesAndNewlines),
+            accountType: selectedAccountType,
+            addressLine1: addressLine1.trimmingCharacters(in: .whitespacesAndNewlines),
+            city: city.trimmingCharacters(in: .whitespacesAndNewlines),
+            state: selectedState,
+            zipCode: zipCode.trimmingCharacters(in: .whitespacesAndNewlines)
         )
         
         return withdrawalViewModel.validateBankAccount(bankAccount) == nil
@@ -189,7 +305,12 @@ struct WithdrawView: View {
             accountHolderName: accountHolderName.trimmingCharacters(in: .whitespacesAndNewlines),
             bankName: bankName.trimmingCharacters(in: .whitespacesAndNewlines),
             accountNumber: accountNumber.trimmingCharacters(in: .whitespacesAndNewlines),
-            routingNumber: routingNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+            routingNumber: routingNumber.trimmingCharacters(in: .whitespacesAndNewlines),
+            accountType: selectedAccountType,
+            addressLine1: addressLine1.trimmingCharacters(in: .whitespacesAndNewlines),
+            city: city.trimmingCharacters(in: .whitespacesAndNewlines),
+            state: selectedState,
+            zipCode: zipCode.trimmingCharacters(in: .whitespacesAndNewlines)
         )
         
         Task {
