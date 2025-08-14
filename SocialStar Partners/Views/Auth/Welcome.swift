@@ -6,35 +6,91 @@ struct WelcomeView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 40) {
-                Text("Welcome to SocialStar Partners")
-                    .font(.system(size: 30, weight: .bold))
-                
-                Text("Get paid for your story ratings")
-                    .font(.system(size: 18))
-                
-                VStack(spacing: 20) {
-                    Button("Sign Up") {
-                        navigateToEmail = true
+            GeometryReader { geometry in
+                VStack(spacing: 0) {
+                    // Top section with logo and text
+                    VStack(spacing: 24) {
+                        Spacer()
+                            .frame(height: 80)
+                        
+                        // Logo
+                        Image("Logo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 75, height: 75)
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                        
+                        // Headlines
+                        VStack(spacing: 12) {
+                            Text("Welcome to SocialStar Partners")
+                                .font(.system(size: 28, weight: .bold))
+                                .foregroundColor(.black)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.8)
+                            
+                            Text("Get paid for your story ratings")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(.gray)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(.horizontal, 32)
+                        
+                        Spacer()
                     }
-                    .font(.system(size: 18, weight: .bold))
-                    .padding()
                     
-                    Button("Sign In") {
-                        navigateToSignIn = true
+                    // Bottom section with buttons
+                    VStack(spacing: 20) {
+                        HStack(spacing: 16) {
+                            // Sign Up Button
+                            Button(action: {
+                                navigateToEmail = true
+                            }) {
+                                Text("Sign Up")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 52)
+                                    .background(Color(hex: "4169E1"))
+                                    .clipShape(RoundedRectangle(cornerRadius: 200))
+                            }
+                            
+                            // Sign In Button
+                            Button(action: {
+                                navigateToSignIn = true
+                            }) {
+                                Text("Sign In")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(Color(hex: "4169E1"))
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 52)
+                                    .background(Color.clear)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 200)
+                                            .stroke(Color(hex: "4169E1"), lineWidth: 3)
+                                    )
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                        
+                        Spacer()
+                            .frame(height: 50)
                     }
-                    .font(.system(size: 18, weight: .bold))
-                    .padding()
-                }
-                
-                NavigationLink(destination: EmailEntryView(), isActive: $navigateToEmail) {
-                    EmptyView()
-                }
-                
-                NavigationLink(destination: SignInView(), isActive: $navigateToSignIn) {
-                    EmptyView()
+                    
+                    // Hidden Navigation Links
+                    NavigationLink(destination: EmailEntryView(), isActive: $navigateToEmail) {
+                        EmptyView()
+                    }
+                    .hidden()
+                    
+                    NavigationLink(destination: SignInView(), isActive: $navigateToSignIn) {
+                        EmptyView()
+                    }
+                    .hidden()
                 }
             }
+            .background(Color.white)
+            .navigationBarHidden(true)
         }
         .navigationViewStyle(StackNavigationViewStyle())
     }
