@@ -10,7 +10,10 @@ struct LinksView: View {
                 VStack(spacing: 20) {
                     // Create New Link Button
                     Button("Create New Link") {
-                        viewModel.createNewLink()
+                        viewModel.createNewLink { newLink in
+                            // Automatically show instructions for the new link
+                            selectedLinkForInstructions = newLink
+                        }
                     }
                     .font(.system(size: 18, weight: .bold))
                     .padding()

@@ -108,8 +108,11 @@ class DashboardViewModel: ObservableObject {
         }
     }
     
-    func createNewLink() {
-        guard let user = Auth.auth().currentUser else { return }
+    func createNewLink(completion: @escaping (RatingLink?) -> Void) {
+        guard let user = Auth.auth().currentUser else {
+            completion(nil)
+            return
+        }
         
         isLoading = true
         errorMessage = ""
@@ -138,6 +141,14 @@ class DashboardViewModel: ObservableObject {
                 
                 if let error = error {
                     self?.errorMessage = "Error creating link: \(error.localizedDescription)"
+                    completion(nil)
+                } else {
+                    let newLink = RatingLink(
+                        documentID: "",
+                        data: linkData
+                    )
+                    
+                    completion(newLink)
                 }
             }
         }
