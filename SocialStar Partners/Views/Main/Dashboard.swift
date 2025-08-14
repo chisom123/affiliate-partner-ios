@@ -165,7 +165,7 @@ struct LinkCard: View {
                     }
                 }
                 
-                Text("Average from \(link.ratingCount) rating\(link.ratingCount != 1 ? "s" : "")")
+                Text("Average Rating")
                     .font(.system(size: 12))
                     .foregroundColor(.gray)
             }
@@ -222,7 +222,7 @@ struct UseLinkInstructionsView: View {
             ScrollView {
                 VStack(spacing: 30) {
                     // Header
-                    Text("Use Link")
+                    Text("How to Use Link")
                         .font(.system(size: 24, weight: .bold))
                         .padding(.top)
                     
