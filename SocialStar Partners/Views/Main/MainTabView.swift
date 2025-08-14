@@ -10,7 +10,7 @@ struct MainTabView: View {
                     Image("link")
                         .renderingMode(.template)
                     Text("Links")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 11, weight: .bold))
                 }
                 .tag(0)
             
@@ -19,7 +19,7 @@ struct MainTabView: View {
                     Image("banknote")
                         .renderingMode(.template)
                     Text("Earnings")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 11, weight: .bold))
                 }
                 .tag(1)
             
@@ -28,7 +28,7 @@ struct MainTabView: View {
                     Image("settings-2")
                         .renderingMode(.template)
                     Text("Settings")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 11, weight: .bold))
                 }
                 .tag(2)
         }
@@ -46,14 +46,14 @@ struct MainTabView: View {
             appearance.stackedLayoutAppearance.selected.iconColor = UIColor.label
             appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
                 .foregroundColor: UIColor.label,
-                .font: UIFont.systemFont(ofSize: 11, weight: .medium)
+                .font: UIFont.systemFont(ofSize: 11, weight: .bold)
             ]
             
             // Style unselected state
             appearance.stackedLayoutAppearance.normal.iconColor = UIColor.secondaryLabel
             appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
                 .foregroundColor: UIColor.secondaryLabel,
-                .font: UIFont.systemFont(ofSize: 11, weight: .medium)
+                .font: UIFont.systemFont(ofSize: 11, weight: .bold)
             ]
             
             UITabBar.appearance().standardAppearance = appearance
