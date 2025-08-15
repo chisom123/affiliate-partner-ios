@@ -1,0 +1,12 @@
+# Secrets
+Secrets.swift
+Secrets.xcconfig
+
+# Xcode
+*.xcuserstate
+xcuserdata/
+DerivedData/
+
+# Environment files
+.env
+.env.local
