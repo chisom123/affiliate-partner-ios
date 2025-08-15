@@ -108,6 +108,44 @@ class DashboardViewModel: ObservableObject {
         }
     }
     
+    func updateLinkTitle(link: RatingLink, newTitle: String) {
+        guard let user = Auth.auth().currentUser else { return }
+        
+        let db = Firestore.firestore()
+        
+        // Find the document by querying for the linkId
+        db.collection("rating_links")
+            .whereField("linkId", isEqualTo: link.linkId)
+            .whereField("affiliateId", isEqualTo: user.uid)
+            .getDocuments { [weak self] snapshot, error in
+                if let error = error {
+                    DispatchQueue.main.async {
+                        self?.errorMessage = "Error updating title: \(error.localizedDescription)"
+                    }
+                    return
+                }
+                
+                guard let document = snapshot?.documents.first else {
+                    DispatchQueue.main.async {
+                        self?.errorMessage = "Link document not found"
+                    }
+                    return
+                }
+                
+                // Update the title in Firestore
+                document.reference.updateData([
+                    "title": newTitle
+                ]) { error in
+                    if let error = error {
+                        DispatchQueue.main.async {
+                            self?.errorMessage = "Error updating title: \(error.localizedDescription)"
+                        }
+                    }
+                    // The real-time listener will automatically update the UI
+                }
+            }
+    }
+    
     func createNewLink(completion: @escaping (RatingLink?) -> Void) {
         guard let user = Auth.auth().currentUser else {
             completion(nil)

@@ -59,9 +59,15 @@ struct LinksView: View {
                            
                         } else {
                             ForEach(viewModel.ratingLinks.sorted(by: { $0.createdAt > $1.createdAt })) { link in
-                                LinkCard(link: link, onUseLink: {
-                                    selectedLinkForInstructions = link
-                                })
+                                LinkCard(
+                                    link: link,
+                                    onUseLink: {
+                                        selectedLinkForInstructions = link
+                                    },
+                                    onUpdateTitle: { newTitle in
+                                        viewModel.updateLinkTitle(link: link, newTitle: newTitle)
+                                    }
+                                )
                             }
                         }
                     }
@@ -98,14 +104,45 @@ struct LinksView: View {
 struct LinkCard: View {
     let link: RatingLink
     let onUseLink: () -> Void
+    let onUpdateTitle: (String) -> Void
+    
+    @State private var isEditingTitle = false
+    @State private var editingTitle = ""
+    @FocusState private var isTitleFieldFocused: Bool
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
             HStack {
                 VStack(alignment: .leading) {
-                    Text(link.title)
-                        .font(.system(size: 16, weight: .bold))
+                    if isEditingTitle {
+                        TextField("Link Title", text: $editingTitle)
+                            .font(.system(size: 16, weight: .bold))
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .focused($isTitleFieldFocused)
+                            .onSubmit {
+                                saveTitle()
+                            }
+                            .onAppear {
+                                editingTitle = link.title
+                                isTitleFieldFocused = true
+                            }
+                    } else {
+                        HStack(spacing: 8) {
+                            Text(link.title)
+                                .font(.system(size: 16, weight: .bold))
+                            
+                            Image("pencil")
+                                .resizable()
+                                .renderingMode(.template)
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 15, height: 15)
+                                .foregroundColor(.gray)
+                        }
+                        .onTapGesture {
+                            startEditingTitle()
+                        }
+                    }
                     
                     Text(timeAgoString(from: link.createdAt))
                         .font(.system(size: 12))
@@ -114,13 +151,37 @@ struct LinkCard: View {
                 
                 Spacer()
                 
-                Text(link.isActive ? "Active" : "Expired")
-                    .font(.system(size: 12, weight: .semibold))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(link.isActive ? Color.green : Color.red)
-                    .foregroundColor(.white)
-                    .cornerRadius(4)
+                if isEditingTitle {
+                    HStack(spacing: 8) {
+                        Button("Cancel") {
+                            cancelEditing()
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.gray.opacity(0.2))
+                        .foregroundColor(.primary)
+                        .cornerRadius(4)
+                        
+                        Button("Save") {
+                            saveTitle()
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(4)
+                    }
+                } else {
+                    Text(link.isActive ? "Active" : "Expired")
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(link.isActive ? Color.green : Color.red)
+                        .foregroundColor(.white)
+                        .cornerRadius(4)
+                }
             }
             
             // Earnings and Ratings
@@ -185,6 +246,32 @@ struct LinkCard: View {
         .padding()
         .background(Color.gray.opacity(0.1))
         .cornerRadius(8)
+        .onTapGesture {
+            // Dismiss editing when tapping outside the title
+            if isEditingTitle {
+                saveTitle()
+            }
+        }
+    }
+    
+    private func startEditingTitle() {
+        isEditingTitle = true
+        editingTitle = link.title
+    }
+    
+    private func saveTitle() {
+        let trimmedTitle = editingTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedTitle.isEmpty && trimmedTitle != link.title {
+            onUpdateTitle(trimmedTitle)
+        }
+        isEditingTitle = false
+        isTitleFieldFocused = false
+    }
+    
+    private func cancelEditing() {
+        isEditingTitle = false
+        editingTitle = link.title
+        isTitleFieldFocused = false
     }
     
     private func timeAgoString(from date: Date) -> String {
