@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct EarningsView: View {
-    @StateObject private var viewModel = DashboardViewModel()
+    @EnvironmentObject var viewModel: DashboardViewModel
     @StateObject private var withdrawalViewModel = WithdrawalViewModel()
     @State private var showingWithdrawSheet = false
     
@@ -103,7 +103,6 @@ struct EarningsView: View {
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
-            viewModel.loadData()
             withdrawalViewModel.loadWithdrawals()
         }
         .sheet(isPresented: $showingWithdrawSheet) {

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @State private var selectedTab = 0
+    @StateObject private var dashboardViewModel = DashboardViewModel()
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -15,6 +16,7 @@ struct MainTabView: View {
                 .tag(0)
             
             EarningsView()
+                .environmentObject(dashboardViewModel) // Pass the shared view model
                 .tabItem {
                     Image("banknote")
                         .renderingMode(.template)
@@ -22,6 +24,7 @@ struct MainTabView: View {
                         .font(.system(size: 11, weight: .bold))
                 }
                 .tag(1)
+                .badge(dashboardViewModel.affiliateData?.balance ?? 0 > 0 ? "1" : nil) // iOS 15+ badge
             
             SettingsView()
                 .tabItem {
@@ -34,6 +37,9 @@ struct MainTabView: View {
         }
         .accentColor(.primary)
         .onAppear {
+            // Load data when the tab view appears
+            dashboardViewModel.loadData()
+            
             // Modern tab bar appearance
             let appearance = UITabBarAppearance()
             appearance.configureWithDefaultBackground()
@@ -58,6 +64,18 @@ struct MainTabView: View {
             
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
+            
+            // Customize badge appearance
+            appearance.stackedLayoutAppearance.normal.badgeBackgroundColor = UIColor.red
+            appearance.stackedLayoutAppearance.selected.badgeBackgroundColor = UIColor.red
+            appearance.stackedLayoutAppearance.normal.badgeTextAttributes = [
+                .font: UIFont.systemFont(ofSize: 10, weight: .bold),
+                .foregroundColor: UIColor.white
+            ]
+            appearance.stackedLayoutAppearance.selected.badgeTextAttributes = [
+                .font: UIFont.systemFont(ofSize: 10, weight: .bold),
+                .foregroundColor: UIColor.white
+            ]
         }
     }
 }
