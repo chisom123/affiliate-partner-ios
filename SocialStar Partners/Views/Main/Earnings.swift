@@ -92,7 +92,7 @@ struct EarningsView: View {
                             .cornerRadius(8)
                         } else {
                             ForEach(withdrawalViewModel.withdrawals.sorted(by: { $0.requestedAt > $1.requestedAt })) { withdrawal in
-                                WithdrawalCard(withdrawal: withdrawal)
+                                WithdrawalCard(withdrawal: withdrawal, withdrawalViewModel: withdrawalViewModel)
                             }
                         }
                     }
@@ -114,6 +114,7 @@ struct EarningsView: View {
 
 struct WithdrawalCard: View {
     let withdrawal: Withdrawal
+    let withdrawalViewModel: WithdrawalViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -150,8 +151,8 @@ struct WithdrawalCard: View {
                 }
             }
             
-            // Bank account info (last 4 digits)
-            Text("****\(withdrawal.bankAccount.accountNumber.suffix(4))")
+            // Bank account info (using encrypted data safely)
+            Text(getBankAccountDisplay(for: withdrawal))
                 .foregroundColor(.gray)
             
             // Rejection reason if rejected
@@ -165,6 +166,12 @@ struct WithdrawalCard: View {
         .padding()
         .background(Color.gray.opacity(0.05))
         .cornerRadius(8)
+    }
+    
+    // Helper to safely get bank account display info
+    private func getBankAccountDisplay(for withdrawal: Withdrawal) -> String {
+        // Use the safe maskedBankInfo property from Withdrawal
+        return withdrawal.maskedBankInfo
     }
     
     private func statusColor(for status: WithdrawalStatus) -> Color {

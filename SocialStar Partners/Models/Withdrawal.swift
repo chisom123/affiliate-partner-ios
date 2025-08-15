@@ -6,7 +6,7 @@ struct Withdrawal: Identifiable {
     let userId: String
     let amount: Double
     let status: WithdrawalStatus
-    let bankAccount: BankAccount
+    let encryptedBankAccount: EncryptedData
     let requestedAt: Date
     let processedAt: Date?
     let rejectionReason: String?
@@ -27,6 +27,22 @@ struct Withdrawal: Identifiable {
     
     var isCompleted: Bool {
         status == .completed || status == .rejected
+    }
+    
+    // Helper to decrypt bank account when needed (for display)
+    func getBankAccount() throws -> BankAccount {
+        return try BankAccount.decrypt(from: encryptedBankAccount)
+    }
+    
+    // Helper for display purposes (masked data) - safe to call
+    var maskedBankInfo: String {
+        do {
+            let bankAccount = try getBankAccount()
+            return bankAccount.displayName
+        } catch {
+            print("⚠️ Could not decrypt bank account for display: \(error)")
+            return "Bank Account (encrypted)"
+        }
     }
 }
 
@@ -129,9 +145,29 @@ extension Withdrawal {
               let amount = data["amount"] as? Double,
               let statusString = data["status"] as? String,
               let status = WithdrawalStatus(rawValue: statusString),
-              let bankAccountData = data["bankAccount"] as? [String: Any],
-              let bankAccount = BankAccount(data: bankAccountData),
               let requestedAt = (data["requestedAt"] as? Timestamp)?.dateValue() else {
+            return nil
+        }
+        
+        // Handle both old (bankAccount) and new (encryptedBankAccount) formats
+        var encryptedBankAccount: EncryptedData
+        
+        if let encryptedBankData = data["encryptedBankAccount"] as? [String: Any],
+           let encryptedData = EncryptedData(data: encryptedBankData) {
+            // New format: encrypted bank account
+            encryptedBankAccount = encryptedData
+        } else if let bankAccountData = data["bankAccount"] as? [String: Any],
+                  let bankAccount = BankAccount(data: bankAccountData) {
+            // Old format: unencrypted bank account - encrypt it on the fly
+            do {
+                encryptedBankAccount = try bankAccount.encrypt()
+                print("📦 Migrated legacy bank account data for withdrawal: \(documentID)")
+            } catch {
+                print("❌ Failed to encrypt legacy bank account: \(error)")
+                return nil
+            }
+        } else {
+            print("❌ No valid bank account data found for withdrawal: \(documentID)")
             return nil
         }
         
@@ -139,7 +175,7 @@ extension Withdrawal {
         self.userId = userId
         self.amount = amount
         self.status = status
-        self.bankAccount = bankAccount
+        self.encryptedBankAccount = encryptedBankAccount
         self.requestedAt = requestedAt
         self.processedAt = (data["processedAt"] as? Timestamp)?.dateValue()
         self.rejectionReason = data["rejectionReason"] as? String
@@ -151,7 +187,7 @@ extension Withdrawal {
             "userId": userId,
             "amount": amount,
             "status": status.rawValue,
-            "bankAccount": bankAccount.toFirestoreData(),
+            "encryptedBankAccount": encryptedBankAccount.toFirestoreData(),
             "requestedAt": Timestamp(date: requestedAt)
         ]
         
@@ -171,6 +207,7 @@ extension Withdrawal {
     }
 }
 
+// MARK: - BankAccount Firestore Conversion (keeping existing methods)
 extension BankAccount {
     init?(data: [String: Any]) {
         guard let accountHolderName = data["accountHolderName"] as? String,
@@ -207,6 +244,26 @@ extension BankAccount {
             "city": city,
             "state": state,
             "zipCode": zipCode
+        ]
+    }
+}
+
+// MARK: - EncryptedData Firestore Support
+extension EncryptedData {
+    init?(data: [String: Any]) {
+        guard let dataString = data["data"] as? String,
+              let algorithm = data["algorithm"] as? String else {
+            return nil
+        }
+        
+        self.data = dataString
+        self.algorithm = algorithm
+    }
+    
+    func toFirestoreData() -> [String: Any] {
+        return [
+            "data": data,
+            "algorithm": algorithm
         ]
     }
 }

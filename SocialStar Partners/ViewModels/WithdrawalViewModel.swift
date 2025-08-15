@@ -40,27 +40,35 @@ class WithdrawalViewModel: ObservableObject {
             }
     }
     
-    // MARK: - Submit Withdrawal Request
+    // MARK: - Submit Withdrawal Request (Updated with Encryption)
     func submitWithdrawal(amount: Double, bankAccount: BankAccount) async {
         guard let user = Auth.auth().currentUser else {
-            errorMessage = "User not authenticated"
+            await MainActor.run {
+                errorMessage = "User not authenticated"
+            }
             return
         }
         
-        isLoading = true
-        errorMessage = ""
-        successMessage = ""
+        await MainActor.run {
+            isLoading = true
+            errorMessage = ""
+            successMessage = ""
+        }
         
         let db = Firestore.firestore()
         
         do {
-            // Create withdrawal document
+            // Encrypt the bank account before storing
+            let encryptedBankAccount = try bankAccount.encrypt()
+            print("🔐 Bank account encrypted successfully")
+            
+            // Create withdrawal document with encrypted bank account
             let withdrawal = Withdrawal(
                 id: "", // Will be set by Firestore
                 userId: user.uid,
                 amount: amount,
                 status: .pending,
-                bankAccount: bankAccount,
+                encryptedBankAccount: encryptedBankAccount, // Now using encrypted data
                 requestedAt: Date(),
                 processedAt: nil,
                 rejectionReason: nil,
@@ -69,26 +77,34 @@ class WithdrawalViewModel: ObservableObject {
             
             // Add to Firestore
             try await db.collection("withdrawals").addDocument(data: withdrawal.toFirestoreData())
+            print("✅ Withdrawal saved to Firestore with encrypted bank details")
             
             // Update user's balance (deduct immediately)
             try await db.collection("affiliates").document(user.uid).updateData([
                 "balance": FieldValue.increment(-amount)
             ])
             
-            DispatchQueue.main.async {
+            await MainActor.run {
                 self.isLoading = false
                 self.successMessage = "Withdrawal request submitted successfully!"
                 
                 // Clear success message after 3 seconds
-                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                    self.successMessage = ""
+                Task {
+                    try await Task.sleep(nanoseconds: 3_000_000_000)
+                    await MainActor.run {
+                        self.successMessage = ""
+                    }
                 }
             }
             
         } catch {
-            DispatchQueue.main.async {
+            await MainActor.run {
                 self.isLoading = false
-                self.errorMessage = "Error submitting withdrawal: \(error.localizedDescription)"
+                if error is EncryptionError {
+                    self.errorMessage = "Security error: \(error.localizedDescription)"
+                } else {
+                    self.errorMessage = "Error submitting withdrawal: \(error.localizedDescription)"
+                }
             }
         }
     }
@@ -154,5 +170,42 @@ class WithdrawalViewModel: ObservableObject {
         }
         
         return nil // No validation errors
+    }
+    
+    // MARK: - Helper to get decrypted bank account for display
+    func getDecryptedBankAccount(for withdrawal: Withdrawal) -> BankAccount? {
+        do {
+            return try withdrawal.getBankAccount()
+        } catch {
+            print("⚠️ Failed to decrypt bank account for withdrawal \(withdrawal.id): \(error)")
+            return nil
+        }
+    }
+    
+    // MARK: - Test Method (for development)
+    func testEncryptionInViewModel() {
+        print("🧪 Testing encryption in ViewModel...")
+        
+        let testBank = BankAccount(
+            accountHolderName: "Test User",
+            bankName: "Test Bank",
+            accountNumber: "1234567890",
+            routingNumber: "987654321",
+            accountType: "checking",
+            addressLine1: "123 Test St",
+            city: "Test City",
+            state: "NY",
+            zipCode: "12345"
+        )
+        
+        do {
+            let encrypted = try testBank.encrypt()
+            print("✅ ViewModel encryption test successful")
+            
+            let decrypted = try BankAccount.decrypt(from: encrypted)
+            print("✅ ViewModel decryption test successful: \(decrypted.accountHolderName)")
+        } catch {
+            print("❌ ViewModel encryption test failed: \(error)")
+        }
     }
 }
