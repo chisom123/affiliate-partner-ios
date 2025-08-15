@@ -36,9 +36,22 @@
 		4FCE2C612E4C8C61000B99B9 /* SocialStar Partners.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "SocialStar Partners.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		4FD3FCC72E4FC7F4008D2E6F /* Exceptions for "SocialStar Partners" folder in "SocialStar Partners" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"SocialStar-Partners-Info.plist",
+			);
+			target = 4FCE2C602E4C8C61000B99B9 /* SocialStar Partners */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		4FCE2C632E4C8C61000B99B9 /* SocialStar Partners */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				4FD3FCC72E4FC7F4008D2E6F /* Exceptions for "SocialStar Partners" folder in "SocialStar Partners" target */,
+			);
 			path = "SocialStar Partners";
 			sourceTree = "<group>";
 		};
@@ -328,6 +341,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "SocialStar-Partners-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Partners;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -367,6 +381,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "SocialStar-Partners-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Partners;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
