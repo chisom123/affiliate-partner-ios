@@ -43,7 +43,7 @@ struct LinksView: View {
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 24)
                                     .padding(.vertical, 12)
-                                    .background(Color(hex: "4169E1"))
+                                    .background(Color.blue)
                                     .cornerRadius(200)
                                 }
                                 .disabled(viewModel.isLoading)
@@ -85,7 +85,7 @@ struct LinksView: View {
                     }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
-                            .foregroundColor(viewModel.isLoading ? .gray : Color(hex: "4169E1"))
+                            .foregroundColor(viewModel.isLoading ? .gray : Color.blue)
                     }
                     .disabled(viewModel.isLoading)
                 }
@@ -186,23 +186,15 @@ struct LinkCard: View {
             
             // Earnings and Ratings
             HStack {
-                VStack {
+                VStack(alignment: .leading) {  // Left align the earnings section
                     Text("$\(link.earnings, specifier: "%.2f")")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 16, weight: .bold))
                     Text("Earned")
                         .font(.system(size: 12))
                         .foregroundColor(.gray)
                 }
                 
                 Spacer()
-                
-                VStack {
-                    Text("\(link.totalRatings)")
-                        .font(.system(size: 18, weight: .bold))
-                    Text("Ratings")
-                        .font(.system(size: 12))
-                        .foregroundColor(.gray)
-                }
             }
             
             // Average Rating Display
