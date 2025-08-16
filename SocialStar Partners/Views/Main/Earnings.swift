@@ -19,58 +19,24 @@ struct EarningsView: View {
                             .foregroundColor(.green)
                         
                         if let affiliateData = viewModel.affiliateData, affiliateData.canWithdraw {
-                            Button("Withdraw") {
+                            Button(action: {
                                 showingWithdrawSheet = true
+                            }) {
+                                Text("Withdraw")
+                                    .frame(maxWidth: .infinity)
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 32)
+                                    .padding(.vertical, 12)
+                                    .background(Color.blue)
+                                    .cornerRadius(8)
                             }
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 32)
-                            .padding(.vertical, 12)
-                            .background(Color.blue)
-                            .cornerRadius(8)
-                        } else {
-                            Text("Minimum withdrawal: $0.25")
-                                .font(.system(size: 14))
-                                .foregroundColor(.gray)
                         }
                     }
                     .padding()
                     .frame(maxWidth: .infinity)
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(12)
-                    
-                    // Earnings Summary
-                    if let affiliateData = viewModel.affiliateData {
-                        VStack(spacing: 12) {
-                            HStack {
-                                Text("Lifetime Earnings")
-                                    .font(.system(size: 16, weight: .medium))
-                                Spacer()
-                                Text("$\(affiliateData.lifetimeEarnings, specifier: "%.2f")")
-                                    .font(.system(size: 16, weight: .bold))
-                            }
-                            
-                            HStack {
-                                Text("Total Withdrawn")
-                                    .font(.system(size: 16, weight: .medium))
-                                Spacer()
-                                Text("$\(affiliateData.totalWithdrawn, specifier: "%.2f")")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(.orange)
-                            }
-                            
-                            HStack {
-                                Text("Total Ratings")
-                                    .font(.system(size: 16, weight: .medium))
-                                Spacer()
-                                Text("\(viewModel.totalRatings)")
-                                    .font(.system(size: 16, weight: .bold))
-                            }
-                        }
-                        .padding()
-                        .background(Color.gray.opacity(0.05))
-                        .cornerRadius(8)
-                    }
                     
                     // Withdrawal History
                     VStack(alignment: .leading, spacing: 15) {
@@ -87,6 +53,7 @@ struct EarningsView: View {
                                     .multilineTextAlignment(.center)
                             }
                             .padding()
+                            .padding(.vertical, 30)
                             .frame(maxWidth: .infinity)
                             .background(Color.gray.opacity(0.05))
                             .cornerRadius(8)
@@ -137,16 +104,6 @@ struct WithdrawalCard: View {
                         .background(statusColor(for: withdrawal.status))
                         .foregroundColor(statusTextColor(for: withdrawal.status))
                         .cornerRadius(6)
-                    
-                    if withdrawal.status == .approved {
-                        Text("Processing soon")
-                            .font(.system(size: 12))
-                            .foregroundColor(.gray)
-                    } else if withdrawal.status == .completed {
-                        Text("Completed")
-                            .font(.system(size: 12))
-                            .foregroundColor(.green)
-                    }
                 }
             }
             
