@@ -120,6 +120,7 @@ struct LinkCard: View {
                             .font(.system(size: 16, weight: .bold))
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                             .focused($isTitleFieldFocused)
+                            .submitLabel(.done)
                             .onSubmit {
                                 saveTitle()
                             }
@@ -149,31 +150,9 @@ struct LinkCard: View {
                         .foregroundColor(.gray)
                 }
                 
-                Spacer()
+                if !isEditingTitle {
+                    Spacer()
                 
-                if isEditingTitle {
-                    HStack(spacing: 8) {
-                        Button("Cancel") {
-                            cancelEditing()
-                        }
-                        .font(.system(size: 12, weight: .medium))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.gray.opacity(0.2))
-                        .foregroundColor(.primary)
-                        .cornerRadius(4)
-                        
-                        Button("Save") {
-                            saveTitle()
-                        }
-                        .font(.system(size: 12, weight: .medium))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(4)
-                    }
-                } else {
                     Image(systemName: link.isActive ? "checkmark.circle.fill" : "xmark.circle.fill")
                         .font(.system(size: 18))
                         .foregroundColor(link.isActive ? .green : .red)
