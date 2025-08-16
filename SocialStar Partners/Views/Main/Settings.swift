@@ -1,6 +1,7 @@
 import SwiftUI
 import Firebase
 import FirebaseAuth
+import MessageUI
 
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
@@ -49,10 +50,23 @@ struct SettingsView: View {
                     }
                 }
                 
+                // Support Section
+                Section("Support") {
+                    Button("Email Us") {
+                        viewModel.openEmailApp()
+                    }
+                    .foregroundColor(.blue)
+                }
+                
                 // Account Actions Section
                 Section("Account") {
                     Button("Sign Out") {
                         viewModel.signOut()
+                    }
+                    .foregroundColor(.red)
+                    
+                    Button("Delete Account") {
+                        viewModel.deleteAccount()
                     }
                     .foregroundColor(.red)
                 }
@@ -138,6 +152,21 @@ class SettingsViewModel: ObservableObject {
                 }
             }
         }
+    }
+    
+    func openEmailApp() {
+        if let emailURL = URL(string: "mailto:info@socialstarapp.com") {
+            if UIApplication.shared.canOpenURL(emailURL) {
+                UIApplication.shared.open(emailURL)
+            } else {
+                errorMessage = "Unable to open email app"
+            }
+        }
+    }
+    
+    func deleteAccount() {
+        // For now, just perform the logout action as requested
+        signOut()
     }
     
     func signOut() {
