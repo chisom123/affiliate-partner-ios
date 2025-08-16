@@ -275,19 +275,17 @@ struct UseLinkInstructionsView: View {
                     // Header
                     Text("How to Use Link")
                         .font(.system(size: 24, weight: .bold))
+                        .padding(.bottom)
                     
                     // Step 1: Copy Link
                     VStack(alignment: .leading, spacing: 15) {
                         HStack {
                             Text("1")
-                                .font(.system(size: 18, weight: .bold))
-                                .frame(width: 30, height: 30)
-                                .background(Color.green)
-                                .foregroundColor(.white)
-                                .clipShape(Circle())
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(Color.green)
                             
                             Text("Copy Link")
-                                .font(.system(size: 20, weight: .semibold))
+                                .font(.system(size: 18, weight: .semibold))
                         }
                         
                         Text("Copy your unique rating link")
@@ -301,7 +299,10 @@ struct UseLinkInstructionsView: View {
                                 .background(Color.gray.opacity(0.1))
                                 .cornerRadius(8)
                             
-                            Button(showCopiedMessage ? "Link Copied!" : "Copy Link") {
+                            Button(action: {
+                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                impactFeedback.impactOccurred()
+                                
                                 UIPasteboard.general.string = "https://\(link.url)"
                                 showCopiedMessage = true
                                 
@@ -309,28 +310,31 @@ struct UseLinkInstructionsView: View {
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                                     showCopiedMessage = false
                                 }
+                            }) {
+                                Text(showCopiedMessage ? "Link Copied!" : "Copy Link")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(showCopiedMessage ? Color.green : Color.blue)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(8)
                             }
-                            .font(.system(size: 16, weight: .bold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(showCopiedMessage ? Color.green : Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(8)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
                     
                     // Step 2: Add to Story
                     VStack(alignment: .leading, spacing: 15) {
                         HStack {
                             Text("2")
-                                .font(.system(size: 18, weight: .bold))
-                                .frame(width: 30, height: 30)
-                                .background(Color.green)
-                                .foregroundColor(.white)
-                                .clipShape(Circle())
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(Color.green)
                             
                             Text("Add Link to Story")
-                                .font(.system(size: 20, weight: .semibold))
+                                .font(.system(size: 18, weight: .semibold))
                         }
                         
                         Text("Add the link to your Instagram or Snapchat story when sharing a photo or video")
@@ -353,50 +357,43 @@ struct UseLinkInstructionsView: View {
                                 .cornerRadius(6)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
                     
                     // Step 3: Start Earning
                     VStack(alignment: .leading, spacing: 15) {
                         HStack {
                             Text("3")
-                                .font(.system(size: 18, weight: .bold))
-                                .frame(width: 30, height: 30)
-                                .background(Color.green)
-                                .foregroundColor(.white)
-                                .clipShape(Circle())
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(Color.green)
                             
                             Text("Start Earning")
-                                .font(.system(size: 20, weight: .semibold))
+                                .font(.system(size: 18, weight: .semibold))
                         }
                         
                         Text("Earn $0.25 for every story rating you receive. Track your earnings in real-time")
                             .font(.system(size: 16))
                             .foregroundColor(.gray)
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("💡 Pro Tip")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.blue)
-                            
-                            Text("Links expire after 48 hours. Create new ones regularly for the best results and maximum earnings")
-                                .font(.system(size: 14))
-                                .foregroundColor(.gray)
-                        }
-                        .padding()
-                        .background(Color.blue.opacity(0.1))
-                        .cornerRadius(8)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
                     
                     // Done Button
-                    Button("Done") {
+                    Button(action: {
                         dismiss()
+                    }) {
+                        Text("Done")
+                            .font(.system(size: 18, weight: .bold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
                     }
-                    .font(.system(size: 18, weight: .bold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-                    .padding(.top)
                 }
                 .padding()
             }
@@ -406,6 +403,8 @@ struct UseLinkInstructionsView: View {
                     Button("Close") {
                         dismiss()
                     }
+                    .foregroundColor(.black)
+                    .fontWeight(.semibold)
                 }
             }
         }
