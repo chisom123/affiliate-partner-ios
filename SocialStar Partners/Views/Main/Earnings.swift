@@ -45,7 +45,7 @@ struct EarningsView: View {
                         
                         if withdrawalViewModel.withdrawals.isEmpty {
                             VStack(spacing: 8) {
-                                Text("No withdrawals yet")
+                                Text("No Withdrawals Yet")
                                     .font(.system(size: 16, weight: .semibold))
                                 Text("Your withdrawal history will appear here")
                                     .font(.system(size: 14))
