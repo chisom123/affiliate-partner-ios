@@ -113,7 +113,7 @@ struct LinkCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
-            HStack {
+            HStack(alignment: .top) { // Changed from default .center to .top
                 VStack(alignment: .leading) {
                     if isEditingTitle {
                         TextField("Link Title", text: $editingTitle)
@@ -174,13 +174,9 @@ struct LinkCard: View {
                         .cornerRadius(4)
                     }
                 } else {
-                    Text(link.isActive ? "Active" : "Expired")
-                        .font(.system(size: 12, weight: .semibold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(link.isActive ? Color.green : Color.red)
-                        .foregroundColor(.white)
-                        .cornerRadius(4)
+                    Image(systemName: link.isActive ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(link.isActive ? .green : .red)
                 }
             }
             
