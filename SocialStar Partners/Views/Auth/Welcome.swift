@@ -51,8 +51,8 @@ struct WelcomeView: View {
                                     .foregroundColor(.white)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 52)
-                                    .background(Color(hex: "4169E1"))
-                                    .clipShape(RoundedRectangle(cornerRadius: 200))
+                                    .background(Color.blue)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
                             
                             // Sign In Button
@@ -61,13 +61,13 @@ struct WelcomeView: View {
                             }) {
                                 Text("Log In")
                                     .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(Color(hex: "4169E1"))
+                                    .foregroundColor(Color.blue)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 52)
                                     .background(Color.clear)
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 200)
-                                            .stroke(Color(hex: "4169E1"), lineWidth: 3)
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .stroke(Color.blue, lineWidth: 3)
                                     )
                             }
                         }
