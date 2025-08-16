@@ -199,15 +199,17 @@ struct LinkCard: View {
             
             // Use Link Button
             if link.isActive {
-                Button("Use Link") {
+                Button(action: {
                     onUseLink()
+                }) {
+                    Text("Use Link")
+                        .font(.system(size: 16, weight: .bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
                 }
-                .font(.system(size: 16, weight: .bold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(8)
             }
         }
         .padding()
