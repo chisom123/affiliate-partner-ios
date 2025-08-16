@@ -275,7 +275,6 @@ struct UseLinkInstructionsView: View {
                     // Header
                     Text("How to Use Link")
                         .font(.system(size: 24, weight: .bold))
-                        .padding(.top)
                     
                     // Step 1: Copy Link
                     VStack(alignment: .leading, spacing: 15) {
@@ -297,6 +296,7 @@ struct UseLinkInstructionsView: View {
                         
                         VStack(spacing: 12) {
                             Text("https://\(link.url)")
+                                .frame(maxWidth: .infinity)
                                 .padding()
                                 .background(Color.gray.opacity(0.1))
                                 .cornerRadius(8)
@@ -392,7 +392,7 @@ struct UseLinkInstructionsView: View {
                     }
                     .font(.system(size: 18, weight: .bold))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, 12)
                     .background(Color.blue)
                     .foregroundColor(.white)
                     .cornerRadius(8)
