@@ -14,10 +14,6 @@ struct LinksView: View {
                         if viewModel.ratingLinks.isEmpty {
                             // Centered empty state
                             VStack(spacing: 16) {
-                                Image(systemName: "link.circle")
-                                    .font(.system(size: 48))
-                                    .foregroundColor(Color.gray.opacity(0.5))
-                                
                                 VStack(spacing: 8) {
                                     Text("No Rating Links Yet")
                                         .font(.system(size: 20, weight: .semibold))
