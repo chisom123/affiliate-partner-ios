@@ -8,6 +8,7 @@ extension Notification.Name {
 
 struct NameView: View {
     let email: String
+    let password: String
     
     @State private var firstName = ""
     @State private var lastName = ""
@@ -21,10 +22,20 @@ struct NameView: View {
             
             VStack(spacing: 15) {
                 TextField("First Name", text: $firstName)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .frame(maxWidth: .infinity)
+                    .textInputAutocapitalization(.words)
+                    .padding(.vertical, 12)
+                    .padding(.leading, 10)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
                 
                 TextField("Last Name", text: $lastName)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .frame(maxWidth: .infinity)
+                    .textInputAutocapitalization(.words)
+                    .padding(.vertical, 12)
+                    .padding(.leading, 10)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
             }
             .padding(.horizontal)
             
@@ -36,29 +47,53 @@ struct NameView: View {
             }
             
             if isLoading {
-                ProgressView("Creating account...")
+                ProgressView()
             } else {
-                Button("Complete Setup") {
+                Button(action: {
                     createAccount()
+                }) {
+                    Text("Complete Setup")
+                        .frame(maxWidth: .infinity)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 32)
+                        .padding(.vertical, 12)
+                        .background(Color.blue)
+                        .cornerRadius(8)
                 }
-                .font(.system(size: 18, weight: .bold))
                 .disabled(firstName.isEmpty || lastName.isEmpty)
+                .padding(.horizontal)
             }
         }
         .padding()
         .navigationBarTitleDisplayMode(.inline)
+        .tint(.black)
     }
     
     private func createAccount() {
         isLoading = true
         errorMessage = ""
         
-        guard let user = Auth.auth().currentUser else {
-            errorMessage = "No authenticated user found"
-            isLoading = false
-            return
+        // Create Firebase Auth user first
+        Auth.auth().createUser(withEmail: email, password: password) { result, error in
+            if let error = error {
+                errorMessage = error.localizedDescription
+                isLoading = false
+                return
+            }
+            
+            // User created successfully, now create Firestore document
+            guard let user = result?.user else {
+                errorMessage = "Failed to get user information"
+                isLoading = false
+                return
+            }
+            
+            createFirestoreDocument(for: user)
         }
-        
+    }
+    
+    private func createFirestoreDocument(for user: User) {
         let db = Firestore.firestore()
         let affiliateData: [String: Any] = [
             "firstName": firstName,

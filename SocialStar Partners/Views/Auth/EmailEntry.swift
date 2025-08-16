@@ -44,7 +44,7 @@ struct EmailEntryView: View {
                 ProgressView()
             } else {
                 Button(action: {
-                    createAccount()
+                    validateAndContinue()
                 }) {
                     Text("Continue")
                         .frame(maxWidth: .infinity)
@@ -60,7 +60,7 @@ struct EmailEntryView: View {
             }
             
             NavigationLink(
-                destination: NameView(email: email),
+                destination: NameView(email: email.replacingOccurrences(of: " ", with: ""), password: password),
                 isActive: $navigateToName
             ) {
                 EmptyView()
@@ -71,20 +71,26 @@ struct EmailEntryView: View {
         .tint(.black)
     }
     
-    private func createAccount() {
+    private func validateAndContinue() {
         isLoading = true
         errorMessage = ""
         
-        Auth.auth().createUser(withEmail: email, password: password) { result, error in
+        // Basic email validation
+        guard email.contains("@") && email.contains(".") else {
+            errorMessage = "Please enter a valid email address"
             isLoading = false
-            
-            if let error = error {
-                errorMessage = error.localizedDescription
-                return
-            }
-            
-            // Account created successfully - go to name entry
-            navigateToName = true
+            return
         }
+        
+        // Basic password validation
+        guard password.count >= 6 else {
+            errorMessage = "Password must be at least 6 characters"
+            isLoading = false
+            return
+        }
+        
+        // If validation passes, navigate to name view
+        isLoading = false
+        navigateToName = true
     }
 }
