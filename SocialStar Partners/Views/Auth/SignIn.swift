@@ -15,12 +15,20 @@ struct SignInView: View {
             
             VStack(spacing: 15) {
                 TextField("Email", text: $email)
+                    .frame(maxWidth: .infinity)
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .padding(.vertical, 12)
+                    .padding(.leading, 10)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
                 
                 SecureField("Password", text: $password)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .padding(.leading, 10)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
             }
             .padding(.horizontal)
             
@@ -32,17 +40,27 @@ struct SignInView: View {
             }
             
             if isLoading {
-                ProgressView("Signing in...")
+                ProgressView()
             } else {
-                Button("Sign In") {
+                Button(action: {
                     signIn()
+                }) {
+                    Text("Log In")
+                        .frame(maxWidth: .infinity)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 32)
+                        .padding(.vertical, 12)
+                        .background(Color.blue)
+                        .cornerRadius(8)
                 }
-                .font(.system(size: 18, weight: .bold))
                 .disabled(email.isEmpty || password.isEmpty)
+                .padding(.horizontal)
             }
         }
         .padding()
         .navigationBarTitleDisplayMode(.inline)
+        .tint(.black)
     }
     
     private func signIn() {
