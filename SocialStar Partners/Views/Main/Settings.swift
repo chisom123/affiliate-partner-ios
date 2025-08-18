@@ -75,12 +75,15 @@ struct SettingsView: View {
                     
                     // Account Actions Section
                     CustomSection(title: "Account") {
-                        VStack(spacing: 12) {
+                        VStack(spacing: 0) {
                             CustomActionRow(
                                 title: "Log Out"
                             ) {
                                 viewModel.showSignOutConfirmation = true
                             }
+                            
+                            // Divider between Log Out and Delete Account
+                            Divider()
                             
                             CustomActionRow(
                                 title: "Delete Account"
@@ -259,7 +262,7 @@ struct CustomActionRow: View {
                     .foregroundColor(.secondary)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.clear)
             .contentShape(Rectangle())
