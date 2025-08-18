@@ -77,15 +77,15 @@ struct SettingsView: View {
                     CustomSection(title: "Account") {
                         VStack(spacing: 12) {
                             CustomActionRow(
-                                title: "Sign Out"
+                                title: "Log Out"
                             ) {
-                                viewModel.signOut()
+                                viewModel.showSignOutConfirmation = true
                             }
                             
                             CustomActionRow(
                                 title: "Delete Account"
                             ) {
-                                viewModel.deleteAccount()
+                                viewModel.showDeleteAccountConfirmation = true
                             }
                         }
                     }
@@ -100,6 +100,24 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.large)
             .onAppear {
                 viewModel.loadUserData()
+            }
+            // Log Out Confirmation Alert
+            .alert("Log Out", isPresented: $viewModel.showSignOutConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Log Out", role: .destructive) {
+                    viewModel.signOut()
+                }
+            } message: {
+                Text("Are you sure you want to log out?")
+            }
+            // Delete Account Confirmation Alert
+            .alert("Delete Account", isPresented: $viewModel.showDeleteAccountConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Delete", role: .destructive) {
+                    viewModel.deleteAccount()
+                }
+            } message: {
+                Text("Are you sure you want to delete your account? This action cannot be undone.")
             }
         }
     }
@@ -242,7 +260,9 @@ struct CustomActionRow: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
-            .cornerRadius(6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.clear)
+            .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -318,6 +338,8 @@ class SettingsViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage = ""
     @Published var successMessage = ""
+    @Published var showSignOutConfirmation = false
+    @Published var showDeleteAccountConfirmation = false
     
     private var originalFirstName = ""
     private var originalLastName = ""
