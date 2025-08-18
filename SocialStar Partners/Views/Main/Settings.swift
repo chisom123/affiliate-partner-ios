@@ -262,7 +262,7 @@ struct CustomActionRow: View {
                     .foregroundColor(.secondary)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 16)
+            .padding(.vertical, 18)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.clear)
             .contentShape(Rectangle())
