@@ -140,7 +140,7 @@ struct CustomSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title)
-                .font(.system(.headline, design: .rounded))
+                .font(.system(.headline))
                 .fontWeight(.semibold)
                 .foregroundColor(.primary)
                 .padding(.horizontal, 4)
@@ -161,13 +161,13 @@ struct CustomInfoRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Text(title)
-                .font(.system(.body, design: .rounded))
+                .font(.system(.body))
                 .fontWeight(.medium)
             
             Spacer()
             
             Text(value)
-                .font(.system(.body, design: .rounded))
+                .font(.system(.body))
                 .foregroundColor(.secondary)
         }
         .padding(.horizontal, 16)
@@ -183,14 +183,14 @@ struct CustomTextField: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Text(title)
-                    .font(.system(.subheadline, design: .rounded))
+                    .font(.system(.subheadline))
                     .fontWeight(.medium)
                     .foregroundColor(.secondary)
             }
             .padding(.horizontal, 16)
             
             TextField("", text: $text)
-                .font(.system(.body, design: .rounded))
+                .font(.system(.body))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(Color.gray.opacity(0.1))
@@ -221,7 +221,7 @@ struct CustomButton: View {
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                 } else {
                     Text(title)
-                        .font(.system(.body, design: .rounded))
+                        .font(.system(.body))
                         .fontWeight(.semibold)
                 }
             }
@@ -251,7 +251,7 @@ struct CustomActionRow: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Text(title)
-                    .font(.system(.body, design: .rounded))
+                    .font(.system(.body))
                     .fontWeight(.medium)
                     .foregroundColor(.primary)
                 
@@ -280,7 +280,7 @@ struct CustomCaptionText: View {
     
     var body: some View {
         Text(text)
-            .font(.system(.caption, design: .rounded))
+            .font(.system(.caption))
             .foregroundColor(.secondary)
             .padding(.horizontal, 16)
     }
@@ -322,7 +322,7 @@ struct CustomMessageCard: View {
                 .frame(width: 20, height: 20)
             
             Text(message)
-                .font(.system(.body, design: .rounded))
+                .font(.system(.body))
                 .foregroundColor(type.color)
                 .multilineTextAlignment(.leading)
             
