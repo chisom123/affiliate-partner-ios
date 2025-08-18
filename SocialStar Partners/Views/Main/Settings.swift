@@ -9,75 +9,307 @@ struct SettingsView: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                // Account Information Section
-                Section("Account Information") {
-                    HStack {
-                        Text("Email")
-                        Spacer()
-                        Text(viewModel.email)
-                            .foregroundColor(.gray)
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Account Information Section
+                    CustomSection(title: "Account Information") {
+                        VStack(spacing: 16) {
+                            CustomInfoRow(
+                                title: "Email",
+                                value: viewModel.email
+                            )
+                            
+                            CustomCaptionText("Your login email cannot be changed")
+                                .padding(.bottom)
+                        }
                     }
                     
-                    Text("Your login email cannot be changed")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                }
-                
-                // Name Section
-                Section("Personal Information") {
-                    TextField("First Name", text: $viewModel.firstName)
+                    // Personal Information Section
+                    CustomSection(title: "Personal Information") {
+                        VStack(spacing: 16) {
+                            CustomTextField(
+                                title: "First Name",
+                                text: $viewModel.firstName
+                            )
+                            
+                            CustomTextField(
+                                title: "Last Name",
+                                text: $viewModel.lastName
+                            )
+                            
+                            CustomButton(
+                                title: "Update Name",
+                                isDisabled: viewModel.isLoading || !viewModel.hasNameChanged || !viewModel.areNamesValid,
+                                isLoading: viewModel.isLoading,
+                                style: .primary
+                            ) {
+                                viewModel.updateName()
+                            }
+                        }
+                        .padding(.vertical)
+                    }
                     
-                    TextField("Last Name", text: $viewModel.lastName)
+                    // Error/Success Messages
+                    if !viewModel.errorMessage.isEmpty {
+                        CustomMessageCard(
+                            message: viewModel.errorMessage,
+                            type: .error
+                        )
+                    }
                     
-                    Button("Update Name") {
-                        viewModel.updateName()
+                    if !viewModel.successMessage.isEmpty {
+                        CustomMessageCard(
+                            message: viewModel.successMessage,
+                            type: .success
+                        )
                     }
-                    .disabled(viewModel.isLoading || !viewModel.hasNameChanged)
-                }
-                
-                if !viewModel.errorMessage.isEmpty {
-                    Section {
-                        Text(viewModel.errorMessage)
-                            .foregroundColor(.red)
-                    }
-                }
-                
-                if !viewModel.successMessage.isEmpty {
-                    Section {
-                        Text(viewModel.successMessage)
-                            .foregroundColor(.green)
-                    }
-                }
-                
-                // Support Section
-                Section("Support") {
-                    Button("Email Us") {
-                        viewModel.openEmailApp()
-                    }
-                    .foregroundColor(.blue)
-                }
-                
-                // Account Actions Section
-                Section("Account") {
-                    Button("Sign Out") {
-                        viewModel.signOut()
-                    }
-                    .foregroundColor(.red)
                     
-                    Button("Delete Account") {
-                        viewModel.deleteAccount()
+                    // Support Section
+                    CustomSection(title: "Support") {
+                        CustomActionRow(
+                            title: "Email Us"
+                        ) {
+                            viewModel.openEmailApp()
+                        }
                     }
-                    .foregroundColor(.red)
+                    
+                    // Account Actions Section
+                    CustomSection(title: "Account") {
+                        VStack(spacing: 12) {
+                            CustomActionRow(
+                                title: "Sign Out"
+                            ) {
+                                viewModel.signOut()
+                            }
+                            
+                            CustomActionRow(
+                                title: "Delete Account"
+                            ) {
+                                viewModel.deleteAccount()
+                            }
+                        }
+                    }
+                    
+                    Spacer(minLength: 100)
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 20)
             }
+            .background(Color(.white))
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.large)
             .onAppear {
                 viewModel.loadUserData()
             }
         }
     }
 }
+
+// MARK: - Custom Components
+
+struct CustomSection<Content: View>: View {
+    let title: String
+    let content: Content
+    
+    init(title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.system(.headline, design: .rounded))
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
+                .padding(.horizontal, 4)
+            
+            VStack(spacing: 0) {
+                content
+            }
+            .background(Color.gray.opacity(0.05))
+            .cornerRadius(6)
+        }
+    }
+}
+
+struct CustomInfoRow: View {
+    let title: String
+    let value: String
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.system(.body, design: .rounded))
+                .fontWeight(.medium)
+            
+            Spacer()
+            
+            Text(value)
+                .font(.system(.body, design: .rounded))
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+    }
+}
+
+struct CustomTextField: View {
+    let title: String
+    @Binding var text: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.system(.subheadline, design: .rounded))
+                    .fontWeight(.medium)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 16)
+            
+            TextField("", text: $text)
+                .font(.system(.body, design: .rounded))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(8)
+                .padding(.horizontal, 16)
+        }
+        .padding(.vertical, 8)
+    }
+}
+
+struct CustomButton: View {
+    let title: String
+    let isDisabled: Bool
+    let isLoading: Bool
+    let style: ButtonStyle
+    let action: () -> Void
+    
+    enum ButtonStyle {
+        case primary, secondary
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                if isLoading {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                } else {
+                    Text(title)
+                        .font(.system(.body, design: .rounded))
+                        .fontWeight(.semibold)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                isDisabled ? Color(.systemGray4) :
+                (style == .primary ? Color.blue : Color(.systemGray5))
+            )
+            .foregroundColor(
+                isDisabled ? Color(.systemGray2) :
+                (style == .primary ? .white : .primary)
+            )
+            .cornerRadius(10)
+            .padding(.horizontal, 16)
+        }
+        .disabled(isDisabled)
+        .padding(.vertical, 8)
+    }
+}
+
+struct CustomActionRow: View {
+    let title: String
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Text(title)
+                    .font(.system(.body, design: .rounded))
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(.caption, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .cornerRadius(6)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+struct CustomCaptionText: View {
+    let text: String
+    
+    init(_ text: String) {
+        self.text = text
+    }
+    
+    var body: some View {
+        Text(text)
+            .font(.system(.caption, design: .rounded))
+            .foregroundColor(.secondary)
+            .padding(.horizontal, 16)
+    }
+}
+
+struct CustomMessageCard: View {
+    let message: String
+    let type: MessageType
+    
+    enum MessageType {
+        case success, error
+        
+        var color: Color {
+            switch self {
+            case .success: return .green
+            case .error: return .red
+            }
+        }
+        
+        var backgroundColor: Color {
+            switch self {
+            case .success: return .green.opacity(0.1)
+            case .error: return .red.opacity(0.1)
+            }
+        }
+        
+        var icon: String {
+            switch self {
+            case .success: return "checkmark.circle.fill"
+            case .error: return "exclamationmark.triangle.fill"
+            }
+        }
+    }
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: type.icon)
+                .foregroundColor(type.color)
+                .frame(width: 20, height: 20)
+            
+            Text(message)
+                .font(.system(.body, design: .rounded))
+                .foregroundColor(type.color)
+                .multilineTextAlignment(.leading)
+            
+            Spacer()
+        }
+        .padding(16)
+    }
+}
+
+// MARK: - ViewModel
 
 class SettingsViewModel: ObservableObject {
     @Published var firstName = ""
@@ -92,6 +324,11 @@ class SettingsViewModel: ObservableObject {
     
     var hasNameChanged: Bool {
         firstName != originalFirstName || lastName != originalLastName
+    }
+    
+    var areNamesValid: Bool {
+        !firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !lastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
     
     func loadUserData() {
@@ -118,24 +355,35 @@ class SettingsViewModel: ObservableObject {
     func updateName() {
         guard let user = Auth.auth().currentUser else { return }
         
+        // Additional validation before proceeding
+        let trimmedFirstName = firstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedLastName = lastName.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if trimmedFirstName.isEmpty || trimmedLastName.isEmpty {
+            errorMessage = "First name and last name cannot be empty"
+            return
+        }
+        
         isLoading = true
         errorMessage = ""
         successMessage = ""
         
         let db = Firestore.firestore()
         db.collection("affiliates").document(user.uid).updateData([
-            "firstName": firstName,
-            "lastName": lastName
+            "firstName": trimmedFirstName,
+            "lastName": trimmedLastName
         ]) { [weak self] error in
             DispatchQueue.main.async {
                 self?.isLoading = false
                 
                 if let error = error {
-                    self?.errorMessage = "Error updating name: \(error.localizedDescription)"
+                    self?.errorMessage = "Error updating name - \(error.localizedDescription)"
                 } else {
-                    self?.successMessage = "Name updated successfully!"
-                    self?.originalFirstName = self?.firstName ?? ""
-                    self?.originalLastName = self?.lastName ?? ""
+                    self?.successMessage = "Name updated successfully"
+                    self?.firstName = trimmedFirstName
+                    self?.lastName = trimmedLastName
+                    self?.originalFirstName = trimmedFirstName
+                    self?.originalLastName = trimmedLastName
                     
                     // Clear success message after 3 seconds
                     DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
