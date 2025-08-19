@@ -47,13 +47,15 @@ struct WithdrawView: View {
                     )
                 }
             }
-            .navigationTitle("Withdraw Funds")
+            .navigationTitle("Withdraw Balance")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Close") {
                         dismiss()
                     }
+                    .foregroundColor(.black)
+                    .fontWeight(.semibold)
                 }
             }
         }
@@ -96,141 +98,178 @@ struct BankDetailsView: View {
     @FocusState private var isInputActive: Bool
     
     var body: some View {
-        Form {
-            // Balance Information Section
-            Section {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Withdrawal Amount")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.secondary)
-                        Text("$\(availableBalance, specifier: "%.2f")")
-                            .font(.system(size: 24, weight: .bold))
-                            .foregroundColor(.green)
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 4) {
-                        Text("Full Balance")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.secondary)
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                            .font(.system(size: 20))
+        ScrollView {
+            VStack(spacing: 24) {
+                // Progress indicator
+                VStack(alignment: .leading, spacing: 16) {
+                    ZStack(alignment: .leading) {
+                        // Background bar
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: 8)
+                            .cornerRadius(4)
+                        
+                        // Progress bar
+                        Rectangle()
+                            .fill(Color.blue)
+                            .frame(width: UIScreen.main.bounds.width * 0.85 * (1.0 / 3.0), height: 8)
+                            .cornerRadius(4)
                     }
                 }
-                .padding(.vertical, 8)
+                .padding(.horizontal)
                 
-                if !canWithdrawToday {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
-                        Text("You can only withdraw once per day")
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                    }
-                }
-                
-                if pendingAmount > 0 {
-                    HStack {
-                        Image(systemName: "clock.fill")
-                            .foregroundColor(.blue)
-                        Text("$\(pendingAmount, specifier: "%.2f") in pending withdrawals")
-                            .font(.caption)
-                            .foregroundColor(.blue)
-                    }
-                }
-            } header: {
-                Text("Withdrawal Details")
-            } footer: {
-                Text("Your full available balance will be withdrawn")
-            }
-            
-            // Bank Account Section
-            Section {
-                HStack(spacing: 12) {
-                    TextField("First Name", text: $bankDetails.firstName)
-                        .textInputAutocapitalization(.words)
-                        .focused($isInputActive)
+                // Bank Account Section
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Bank Account Details")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.primary)
                     
-                    TextField("Last Name", text: $bankDetails.lastName)
-                        .textInputAutocapitalization(.words)
-                        .focused($isInputActive)
-                }
-                
-                Text("Name must match exactly as it appears on your bank account")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                // Bank Name Picker
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Bank Name")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Menu {
-                        ForEach(USBank.majorBanks, id: \.name) { bank in
-                            Button(bank.name) {
-                                bankDetails.bankName = bank.name
+                    VStack(spacing: 16) {
+                        // Name Fields
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("First Name")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                TextField("First Name", text: $bankDetails.firstName)
+                                    .textInputAutocapitalization(.words)
+                                    .focused($isInputActive)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 12)
+                                    .background(Color.gray.opacity(0.1))
+                                    .cornerRadius(8)
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Last Name")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                TextField("Last Name", text: $bankDetails.lastName)
+                                    .textInputAutocapitalization(.words)
+                                    .focused($isInputActive)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 12)
+                                    .background(Color.gray.opacity(0.1))
+                                    .cornerRadius(8)
                             }
                         }
-                    } label: {
-                        HStack {
-                            Text(bankDetails.bankName.isEmpty ? "Select Your Bank" : bankDetails.bankName)
-                                .foregroundColor(bankDetails.bankName.isEmpty ? .secondary : .primary)
-                            Spacer()
-                            Image(systemName: "chevron.down")
+                        
+                        Text("Name must match exactly as it appears on your bank account")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        // Bank Name Picker
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Bank Name")
+                                .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.secondary)
-                                .font(.caption)
-                        }
-                        .padding(.vertical, 8)
-                    }
-                }
-                
-                TextField("Account Number", text: $bankDetails.accountNumber)
-                    .keyboardType(.numberPad)
-                    .focused($isInputActive)
-                
-                TextField("Routing Number", text: $bankDetails.routingNumber)
-                    .keyboardType(.numberPad)
-                    .focused($isInputActive)
-                
-                // Account Type Picker
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Account Type")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Menu {
-                        Button("Checking") {
-                            bankDetails.selectedAccountType = "checking"
+                            
+                            Menu {
+                                ForEach(USBank.majorBanks, id: \.name) { bank in
+                                    Button(bank.name) {
+                                        bankDetails.bankName = bank.name
+                                    }
+                                }
+                            } label: {
+                                HStack {
+                                    Text(bankDetails.bankName.isEmpty ? "Select Your Bank" : bankDetails.bankName)
+                                        .foregroundColor(bankDetails.bankName.isEmpty ? .secondary : .primary)
+                                    Spacer()
+                                    Image(systemName: "chevron.down")
+                                        .foregroundColor(.secondary)
+                                        .font(.caption.weight(.bold))
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 12)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
+                            }
                         }
                         
-                        Button("Savings") {
-                            bankDetails.selectedAccountType = "savings"
-                        }
-                    } label: {
-                        HStack {
-                            Text(bankDetails.selectedAccountType.capitalized)
-                            Spacer()
-                            Image(systemName: "chevron.down")
+                        // Account Number
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Account Number")
+                                .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.secondary)
-                                .font(.caption)
+                            TextField("Account Number", text: $bankDetails.accountNumber)
+                                .keyboardType(.numberPad)
+                                .focused($isInputActive)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 12)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
                         }
-                        .padding(.vertical, 8)
+                        
+                        // Routing Number
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Routing Number")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.secondary)
+                            TextField("Routing Number", text: $bankDetails.routingNumber)
+                                .keyboardType(.numberPad)
+                                .focused($isInputActive)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 12)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
+                        }
+                        
+                        // Account Type Picker
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Account Type")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.secondary)
+                            
+                            Menu {
+                                Button("Checking") {
+                                    bankDetails.selectedAccountType = "checking"
+                                }
+                                
+                                Button("Savings") {
+                                    bankDetails.selectedAccountType = "savings"
+                                }
+                            } label: {
+                                HStack {
+                                    Text(bankDetails.selectedAccountType.capitalized)
+                                        .foregroundColor(.black)
+                                    
+                                    Spacer()
+                                    Image(systemName: "chevron.down")
+                                        .foregroundColor(.secondary)
+                                        .font(.caption.weight(.bold))
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 12)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
+                            }
+                        }
                     }
                 }
-            } header: {
-                Text("Bank Account Details")
-            }
-            
-            // Continue Button
-            Section {
-                Button("Continue to Address") {
+                .padding(.horizontal)
+                
+                // Continue Button
+                Button(action: {
                     onNext()
+                }) {
+                    HStack {
+                        Text("Continue to Address")
+                            .font(.system(.body))
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        (!isBankDetailsValid || !canWithdrawToday || availableBalance < 0.25) ? Color(.systemGray4) : Color.blue
+                    )
+                    .foregroundColor(
+                        (!isBankDetailsValid || !canWithdrawToday || availableBalance < 0.25) ? Color(.systemGray2) : .white
+                    )
+                    .cornerRadius(10)
+                    .padding(.horizontal, 16)
                 }
-                .font(.system(size: 16, weight: .semibold))
-                .frame(maxWidth: .infinity)
                 .disabled(!isBankDetailsValid || !canWithdrawToday || availableBalance < 0.25)
+                .padding(.vertical, 8)
             }
         }
         .toolbar {
@@ -239,16 +278,10 @@ struct BankDetailsView: View {
                 Button("Done") {
                     isInputActive = false
                 }
+                .bold()
             }
         }
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") {
-                    isInputActive = false
-                }
-            }
-        }
+        .tint(.black)
     }
     
     private var isBankDetailsValid: Bool {
@@ -273,91 +306,156 @@ struct AddressDetailsView: View {
     @FocusState private var isInputActive: Bool
     
     var body: some View {
-        Form {
-            // Progress indicator
-            Section {
-                HStack {
-                    ForEach(1...3, id: \.self) { step in
-                        Circle()
-                            .fill(step <= 2 ? Color.blue : Color.gray.opacity(0.3))
-                            .frame(width: 12, height: 12)
+        ScrollView {
+            VStack(spacing: 24) {
+                // Progress indicator
+                VStack(alignment: .leading, spacing: 16) {
+                    ZStack(alignment: .leading) {
+                        // Background bar
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: 8)
+                            .cornerRadius(4)
                         
-                        if step < 3 {
-                            Rectangle()
-                                .fill(step < 2 ? Color.blue : Color.gray.opacity(0.3))
-                                .frame(height: 2)
-                        }
+                        // Progress bar
+                        Rectangle()
+                            .fill(Color.blue)
+                            .frame(width: UIScreen.main.bounds.width * 0.85 * (2.0 / 3.0), height: 8)
+                            .cornerRadius(4)
                     }
                 }
-                .padding(.vertical, 8)
-            } header: {
-                Text("Step 2 of 3")
-            }
-            
-            // Address Section
-            Section {
-                TextField("Address Line 1", text: $addressDetails.addressLine1)
-                    .textInputAutocapitalization(.words)
-                    .focused($isInputActive)
+                .padding(.horizontal)
                 
-                TextField("City", text: $addressDetails.city)
-                    .textInputAutocapitalization(.words)
-                    .focused($isInputActive)
-                
-                // State Picker
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("State")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                // Address Section
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Your Address")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.primary)
                     
-                    Menu {
-                        ForEach(USState.allStates, id: \.code) { state in
-                            Button(state.name) {
-                                addressDetails.selectedState = state.code
+                    VStack(spacing: 16) {
+                        // Address Line 1
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Address Line 1")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.secondary)
+                            TextField("Address Line 1", text: $addressDetails.addressLine1)
+                                .textInputAutocapitalization(.words)
+                                .focused($isInputActive)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 12)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
+                        }
+                        
+                        // City
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("City")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.secondary)
+                            TextField("City", text: $addressDetails.city)
+                                .textInputAutocapitalization(.words)
+                                .focused($isInputActive)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 12)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
+                        }
+                        
+                        // State Picker
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("State")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.secondary)
+                            
+                            Menu {
+                                ForEach(USState.allStates, id: \.code) { state in
+                                    Button(state.name) {
+                                        addressDetails.selectedState = state.code
+                                    }
+                                }
+                            } label: {
+                                HStack {
+                                    Text(addressDetails.selectedState.isEmpty ? "Select State" :
+                                         USState.allStates.first(where: { $0.code == addressDetails.selectedState })?.name ?? addressDetails.selectedState)
+                                        .foregroundColor(addressDetails.selectedState.isEmpty ? .secondary : .primary)
+                                    Spacer()
+                                    Image(systemName: "chevron.down")
+                                        .foregroundColor(.secondary)
+                                        .font(.caption.weight(.bold))
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 12)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
                             }
                         }
-                    } label: {
-                        HStack {
-                            Text(addressDetails.selectedState.isEmpty ? "Select State" :
-                                 USState.allStates.first(where: { $0.code == addressDetails.selectedState })?.name ?? addressDetails.selectedState)
-                                .foregroundColor(addressDetails.selectedState.isEmpty ? .secondary : .primary)
-                            Spacer()
-                            Image(systemName: "chevron.down")
+                        
+                        // ZIP Code
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("ZIP Code")
+                                .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.secondary)
-                                .font(.caption)
+                            TextField("ZIP Code", text: $addressDetails.zipCode)
+                                .keyboardType(.numberPad)
+                                .focused($isInputActive)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 12)
+                                .background(Color.gray.opacity(0.1))
+                                .cornerRadius(8)
                         }
-                        .padding(.vertical, 8)
                     }
                 }
+                .padding(.horizontal)
                 
-                TextField("ZIP Code", text: $addressDetails.zipCode)
-                    .keyboardType(.numberPad)
-                    .focused($isInputActive)
-            } header: {
-                Text("US Address")
-            } footer: {
-                Text("Your address is required for international transfers to US bank accounts")
-            }
-            
-            // Navigation Buttons
-            Section {
-                HStack(spacing: 12) {
-                    Button("Back") {
-                        onBack()
-                    }
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.blue)
-                    .frame(maxWidth: .infinity)
-                    
-                    Button("Continue to Review") {
+                // Navigation Buttons
+                VStack(spacing: 12) {
+                    Button(action: {
                         onNext()
+                    }) {
+                        HStack {
+                            Text("Continue to Review")
+                                .font(.system(.body))
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(!isAddressValid ? Color(.systemGray4) : Color.blue)
+                        .foregroundColor(!isAddressValid ? Color(.systemGray2) : .white)
+                        .cornerRadius(10)
+                        .padding(.horizontal, 16)
                     }
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(maxWidth: .infinity)
                     .disabled(!isAddressValid)
+                    .padding(.vertical, 8)
+                    
+                    Button(action: {
+                        onBack()
+                    }) {
+                        HStack {
+                            Text("Back")
+                                .font(.system(.body))
+                                .fontWeight(.semibold)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .foregroundColor(.primary)
+                        .cornerRadius(10)
+                        .padding(.horizontal, 16)
+                    }
+                    .padding(.vertical, 8)
                 }
+                .padding(.bottom, 20)
             }
         }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    isInputActive = false
+                }
+                .bold()
+            }
+        }
+        .tint(.black)
     }
     
     private var isAddressValid: Bool {
@@ -377,199 +475,154 @@ struct WithdrawalConfirmationView: View {
     let onBack: () -> Void
     let onSuccess: () -> Void
     
-    @State private var showingFinalConfirmation = false
-    
     var body: some View {
-        Form {
-            // Progress indicator
-            Section {
-                HStack {
-                    ForEach(1...3, id: \.self) { step in
-                        Circle()
-                            .fill(Color.blue)
-                            .frame(width: 12, height: 12)
+        ScrollView {
+            VStack(spacing: 24) {
+                // Progress indicator
+                VStack(alignment: .leading, spacing: 16) {
+                    ZStack(alignment: .leading) {
+                        // Background bar
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(height: 8)
+                            .cornerRadius(4)
                         
-                        if step < 3 {
-                            Rectangle()
-                                .fill(Color.blue)
-                                .frame(height: 2)
-                        }
+                        // Progress bar
+                        Rectangle()
+                            .fill(Color.blue)
+                            .frame(width: UIScreen.main.bounds.width * 0.85, height: 8)
+                            .cornerRadius(4)
                     }
                 }
-                .padding(.vertical, 8)
-            } header: {
-                Text("Step 3 of 3 - Review & Confirm")
-            }
-            
-            // Withdrawal Summary
-            Section {
-                HStack {
-                    Text("Withdrawal Amount")
-                        .font(.system(size: 16, weight: .medium))
-                    Spacer()
-                    Text("$\(withdrawalAmount, specifier: "%.2f")")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.green)
-                }
-                .padding(.vertical, 4)
-            } header: {
-                Text("Withdrawal Summary")
-            }
-            
-            // Bank Account Review
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Account Holder:")
-                        Spacer()
-                        Text(bankDetails.fullName)
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                    
-                    HStack {
-                        Text("Bank:")
-                        Spacer()
-                        Text(bankDetails.bankName)
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                    
-                    HStack {
-                        Text("Account Type:")
-                        Spacer()
-                        Text(bankDetails.selectedAccountType.capitalized)
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                    
-                    HStack {
-                        Text("Account Number:")
-                        Spacer()
-                        Text("****\(String(bankDetails.accountNumber.suffix(4)))")
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                    
-                    HStack {
-                        Text("Routing Number:")
-                        Spacer()
-                        Text("****\(String(bankDetails.routingNumber.suffix(4)))")
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                }
-            } header: {
-                Text("Bank Account Details")
-            }
-            
-            // Address Review
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Address:")
-                        Spacer()
-                        Text(addressDetails.addressLine1)
-                            .font(.system(size: 14, weight: .medium))
-                            .multilineTextAlignment(.trailing)
-                    }
-                    
-                    HStack {
-                        Text("City, State ZIP:")
-                        Spacer()
-                        Text("\(addressDetails.city), \(addressDetails.selectedState) \(addressDetails.zipCode)")
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                }
-            } header: {
-                Text("Address Details")
-            }
-            
-            // Processing Info
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "clock")
-                            .foregroundColor(.blue)
-                        Text("Processing Time: 3-5 business days")
-                            .font(.system(size: 14))
-                    }
-                    
-                    HStack {
-                        Image(systemName: "shield.checkered")
-                            .foregroundColor(.green)
-                        Text("Your bank details are encrypted and secure")
-                            .font(.system(size: 14))
-                    }
-                }
-            } header: {
-                Text("Important Information")
-            }
-            
-            // Action Buttons
-            Section {
-                Button(action: {
-                    showingFinalConfirmation = true
-                }) {
-                    HStack {
-                        Spacer()
-                        Text("Submit Withdrawal")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
-                        Spacer()
-                    }
-                    .padding(.vertical, 12)
-                    .background(withdrawalViewModel.isLoading ? Color.gray : Color.blue)
-                    .cornerRadius(8)
-                }
-                .disabled(withdrawalViewModel.isLoading)
-                .buttonStyle(PlainButtonStyle())
+                .padding(.horizontal)
                 
-                Button(action: {
-                    onBack()
-                }) {
+                // Withdrawal Summary
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Withdrawal Summary")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.primary)
+                    
                     HStack {
-                        Spacer()
-                        Text("Back to Address")
+                        Text("Withdrawal Amount")
                             .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.blue)
                         Spacer()
+                        Text("$\(withdrawalAmount, specifier: "%.2f")")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.green)
+                    }
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(12)
+                }
+                .padding(.horizontal)
+                
+                // Bank Account Review
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Bank Account Details")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.primary)
+                    
+                    VStack(spacing: 12) {
+                        ReviewRow(label: "Account Holder", value: bankDetails.fullName)
+                        ReviewRow(label: "Bank", value: bankDetails.bankName)
+                        ReviewRow(label: "Account Type", value: bankDetails.selectedAccountType.capitalized)
+                        ReviewRow(label: "Account Number", value: "****\(String(bankDetails.accountNumber.suffix(4)))")
+                        ReviewRow(label: "Routing Number", value: "****\(String(bankDetails.routingNumber.suffix(4)))")
+                    }
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(12)
+                }
+                .padding(.horizontal)
+                
+                // Address Review
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Address Details")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(.primary)
+                    
+                    VStack(spacing: 12) {
+                        ReviewRow(label: "Address", value: addressDetails.addressLine1)
+                        ReviewRow(label: "City, State ZIP", value: "\(addressDetails.city), \(addressDetails.selectedState) \(addressDetails.zipCode)")
+                    }
+                    .padding()
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(12)
+                }
+                .padding(.horizontal)
+                
+                // Processing Info
+                Text("Your money will arrive in your account within 2-5 business days")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.black)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                
+                // Action Buttons
+                VStack(spacing: 12) {
+                    Button(action: {
+                        submitWithdrawal()
+                    }) {
+                        HStack {
+                            if withdrawalViewModel.isLoading {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            } else {
+                                Text("Submit Withdrawal")
+                                    .font(.system(.body))
+                                    .fontWeight(.semibold)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(withdrawalViewModel.isLoading ? Color(.systemGray4) : Color.blue)
+                        .foregroundColor(withdrawalViewModel.isLoading ? Color(.systemGray2) : .white)
+                        .cornerRadius(10)
+                    }
+                    .disabled(withdrawalViewModel.isLoading)
+                    .padding(.vertical, 8)
+                    
+                    Button(action: {
+                        onBack()
+                    }) {
+                        HStack {
+                            Text("Back")
+                                .font(.system(.body))
+                                .fontWeight(.semibold)
+                        }
+                        .padding(.vertical, 14)
+                        .foregroundColor(.primary)
+                        .cornerRadius(10)
+                        .padding(.horizontal, 16)
                     }
                     .padding(.vertical, 8)
                 }
-                .buttonStyle(PlainButtonStyle())
+                .padding(.horizontal)
                 
-                if withdrawalViewModel.isLoading {
-                    HStack {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("Processing withdrawal...")
+                // Messages
+                VStack(spacing: 8) {
+                    if !withdrawalViewModel.errorMessage.isEmpty {
+                        Text(withdrawalViewModel.errorMessage)
+                            .foregroundColor(.red)
                             .font(.system(size: 14))
-                            .foregroundColor(.gray)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal)
+                    }
+                    
+                    if !withdrawalViewModel.successMessage.isEmpty {
+                        Text(withdrawalViewModel.successMessage)
+                            .foregroundColor(.green)
+                            .font(.system(size: 14))
+                            .fontWeight(.semibold)
+                            .padding(.horizontal)
                     }
                 }
-            }
-            
-            // Messages
-            if !withdrawalViewModel.errorMessage.isEmpty {
-                Section {
-                    Text(withdrawalViewModel.errorMessage)
-                        .foregroundColor(.red)
-                        .font(.system(size: 14))
-                }
-            }
-            
-            if !withdrawalViewModel.successMessage.isEmpty {
-                Section {
-                    Text(withdrawalViewModel.successMessage)
-                        .foregroundColor(.green)
-                        .font(.system(size: 14))
-                }
+                .padding(.bottom, 20)
             }
         }
-        .alert("Confirm Withdrawal", isPresented: $showingFinalConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Confirm") {
-                submitWithdrawal()
-            }
-        } message: {
-            Text("Withdraw $\(withdrawalAmount, specifier: "%.2f") to your \(bankDetails.selectedAccountType) account ending in \(String(bankDetails.accountNumber.suffix(4)))?")
-        }
+        .tint(.black)
     }
     
     private func submitWithdrawal() {
@@ -597,6 +650,24 @@ struct WithdrawalConfirmationView: View {
                     onSuccess()
                 }
             }
+        }
+    }
+}
+
+// MARK: - Helper Views
+struct ReviewRow: View {
+    let label: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
+            Spacer()
+            Text(value)
+                .font(.system(size: 14, weight: .medium))
+                .multilineTextAlignment(.trailing)
         }
     }
 }
