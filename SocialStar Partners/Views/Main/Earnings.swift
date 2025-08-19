@@ -113,8 +113,8 @@ struct WithdrawalCard: View {
             
             // Rejection reason if rejected
             if withdrawal.status == .rejected, let reason = withdrawal.rejectionReason {
-                Text("Reason: \(reason)")
-                    .font(.system(size: 14))
+                Text("\(reason)")
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.red)
                     .padding(.top, 4)
             }
