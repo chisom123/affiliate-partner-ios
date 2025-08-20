@@ -8,6 +8,14 @@ struct SocialStarPartnersApp: App {
     
     init() {
         FirebaseApp.configure()
+        
+        // Configure analytics with PostHog
+        let POSTHOG_API_KEY = "phc_qj9C9wVUnzp0JrbLAjcH603STtMN7Eu0dvHEt5ndNwM"
+        let POSTHOG_HOST = "https://eu.i.posthog.com"
+        
+        // Setup analytics with PostHog implementation
+        let analyticsService = PostHogAnalyticsService(apiKey: POSTHOG_API_KEY, host: POSTHOG_HOST)
+        Analytics.shared.configure(with: analyticsService)
     }
     
     var body: some Scene {

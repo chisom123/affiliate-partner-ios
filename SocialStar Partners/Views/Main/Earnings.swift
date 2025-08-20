@@ -20,6 +20,16 @@ struct EarningsView: View {
                         
                         if let affiliateData = viewModel.affiliateData, affiliateData.canWithdraw {
                             Button(action: {
+                                // Analytics: Track withdraw button tap
+                                Analytics.shared.trackTap(
+                                    elementId: "withdraw_button",
+                                    screenName: "earnings",
+                                    properties: [
+                                        "available_balance": affiliateData.balance,
+                                        "can_withdraw": affiliateData.canWithdraw
+                                    ]
+                                )
+                                
                                 showingWithdrawSheet = true
                             }) {
                                 Text("Withdraw")
@@ -70,10 +80,40 @@ struct EarningsView: View {
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
+            // Analytics: Track screen view
+            Analytics.shared.trackScreen(
+                name: "earnings",
+                properties: [
+                    "available_balance": viewModel.affiliateData?.balance ?? 0.0,
+                    "can_withdraw": viewModel.affiliateData?.canWithdraw ?? false,
+                    "withdrawal_count": withdrawalViewModel.withdrawals.count
+                ]
+            )
+            
             withdrawalViewModel.loadWithdrawals()
         }
         .sheet(isPresented: $showingWithdrawSheet) {
             WithdrawView()
+        }
+        .onChange(of: showingWithdrawSheet) { isPresented in
+            if isPresented {
+                // Analytics: Track withdrawal sheet presentation
+                Analytics.shared.track(
+                    event: "withdrawal_sheet_opened",
+                    properties: [
+                        AnalyticsProperty.screenName: "earnings",
+                        "available_balance": viewModel.affiliateData?.balance ?? 0.0
+                    ]
+                )
+            } else {
+                // Analytics: Track withdrawal sheet dismissal
+                Analytics.shared.track(
+                    event: "withdrawal_sheet_closed",
+                    properties: [
+                        AnalyticsProperty.screenName: "earnings"
+                    ]
+                )
+            }
         }
     }
 }
@@ -81,6 +121,7 @@ struct EarningsView: View {
 struct WithdrawalCard: View {
     let withdrawal: Withdrawal
     let withdrawalViewModel: WithdrawalViewModel
+    @State private var hasTrackedView = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {

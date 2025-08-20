@@ -26,8 +26,30 @@ struct LinksView: View {
                                 }
                                 
                                 Button(action: {
+                                    // Analytics: Track first link creation from empty state
+                                    Analytics.shared.trackTap(
+                                        elementId: "create_first_link_button",
+                                        screenName: "links",
+                                        properties: [
+                                            "user_state": "empty_state",
+                                            "total_links": viewModel.ratingLinks.count
+                                        ]
+                                    )
+                                    
                                     viewModel.createNewLink { newLink in
                                         selectedLinkForInstructions = newLink
+                                        
+                                        // Analytics: Track successful first link creation
+                                        if let link = newLink {
+                                            Analytics.shared.track(
+                                                event: "first_link_created",
+                                                properties: [
+                                                    AnalyticsProperty.screenName: "links",
+                                                    "link_id": link.id,
+                                                    "link_title": link.title
+                                                ]
+                                            )
+                                        }
                                     }
                                 }) {
                                     HStack(spacing: 8) {
@@ -59,8 +81,33 @@ struct LinksView: View {
                                     link: link,
                                     onUseLink: {
                                         selectedLinkForInstructions = link
+                                        
+                                        // Analytics: Track link instructions opened
+                                        Analytics.shared.trackTap(
+                                            elementId: "use_link_button",
+                                            screenName: "links",
+                                            properties: [
+                                                "link_id": link.id,
+                                                "link_earnings": link.earnings,
+                                                "link_rating_count": link.ratingCount,
+                                                "link_average_rating": link.averageRating,
+                                                "link_is_active": link.isActive
+                                            ]
+                                        )
                                     },
                                     onUpdateTitle: { newTitle in
+                                        // Analytics: Track link title update
+                                        Analytics.shared.track(
+                                            event: "link_title_updated",
+                                            properties: [
+                                                AnalyticsProperty.screenName: "links",
+                                                "link_id": link.id,
+                                                "old_title": link.title,
+                                                "new_title": newTitle,
+                                                "title_length": newTitle.count
+                                            ]
+                                        )
+                                        
                                         viewModel.updateLinkTitle(link: link, newTitle: newTitle)
                                     }
                                 )
@@ -75,8 +122,32 @@ struct LinksView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
+                        // Analytics: Track new link creation from toolbar
+                        Analytics.shared.trackTap(
+                            elementId: "add_link_toolbar_button",
+                            screenName: "links",
+                            properties: [
+                                "total_links": viewModel.ratingLinks.count,
+                                "user_state": viewModel.ratingLinks.isEmpty ? "empty" : "has_links"
+                            ]
+                        )
+                        
                         viewModel.createNewLink { newLink in
                             selectedLinkForInstructions = newLink
+                            
+                            // Analytics: Track successful link creation
+                            if let link = newLink {
+                                Analytics.shared.track(
+                                    event: "link_created",
+                                    properties: [
+                                        AnalyticsProperty.screenName: "links",
+                                        "link_id": link.id,
+                                        "link_title": link.title,
+                                        "total_links_after": viewModel.ratingLinks.count + 1,
+                                        "creation_source": "toolbar"
+                                    ]
+                                )
+                            }
                         }
                     }) {
                         Image(systemName: "plus.circle.fill")
@@ -89,6 +160,23 @@ struct LinksView: View {
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
+            // Analytics: Track screen view with link statistics
+            let activeLinks = viewModel.ratingLinks.filter { $0.isActive }
+            let totalEarnings = viewModel.ratingLinks.reduce(0) { $0 + $1.earnings }
+            let totalRatings = viewModel.ratingLinks.reduce(0) { $0 + $1.ratingCount }
+            
+            Analytics.shared.trackScreen(
+                name: "links",
+                properties: [
+                    "total_links": viewModel.ratingLinks.count,
+                    "active_links": activeLinks.count,
+                    "inactive_links": viewModel.ratingLinks.count - activeLinks.count,
+                    "total_earnings": totalEarnings,
+                    "total_ratings": totalRatings,
+                    "average_earnings_per_link": viewModel.ratingLinks.isEmpty ? 0 : totalEarnings / Double(viewModel.ratingLinks.count)
+                ]
+            )
+            
             viewModel.loadData()
         }
         .sheet(item: $selectedLinkForInstructions) { link in
@@ -104,6 +192,7 @@ struct LinkCard: View {
     
     @State private var isEditingTitle = false
     @State private var editingTitle = ""
+    @State private var hasTrackedView = false
     @FocusState private var isTitleFieldFocused: Bool
     
     var body: some View {
@@ -123,6 +212,16 @@ struct LinkCard: View {
                             .onAppear {
                                 editingTitle = link.title
                                 isTitleFieldFocused = true
+                                
+                                // Analytics: Track title editing started
+                                Analytics.shared.track(
+                                    event: "link_title_edit_started",
+                                    properties: [
+                                        AnalyticsProperty.screenName: "links",
+                                        "link_id": link.id,
+                                        "current_title": link.title
+                                    ]
+                                )
                             }
                     } else {
                         HStack(spacing: 8) {
@@ -137,6 +236,16 @@ struct LinkCard: View {
                                 .foregroundColor(.gray)
                         }
                         .onTapGesture {
+                            // Analytics: Track title edit tap
+                            Analytics.shared.trackTap(
+                                elementId: "link_title_edit",
+                                screenName: "links",
+                                properties: [
+                                    "link_id": link.id,
+                                    "current_title": link.title
+                                ]
+                            )
+                            
                             startEditingTitle()
                         }
                     }
@@ -211,7 +320,37 @@ struct LinkCard: View {
         .padding()
         .background(Color.gray.opacity(0.1))
         .cornerRadius(8)
+        .onAppear {
+            // Analytics: Track link card view (only once per card)
+            if !hasTrackedView {
+                Analytics.shared.track(
+                    event: "link_card_viewed",
+                    properties: [
+                        AnalyticsProperty.screenName: "links",
+                        "link_id": link.id,
+                        "link_earnings": link.earnings,
+                        "link_rating_count": link.ratingCount,
+                        "link_average_rating": link.averageRating,
+                        "link_is_active": link.isActive,
+                        "link_age_days": Calendar.current.dateComponents([.day], from: link.createdAt, to: Date()).day ?? 0,
+                        "has_ratings": link.hasRatings
+                    ]
+                )
+                hasTrackedView = true
+            }
+        }
         .onTapGesture {
+            // Analytics: Track link card tap (general interaction)
+            Analytics.shared.trackTap(
+                elementId: "link_card",
+                screenName: "links",
+                properties: [
+                    "link_id": link.id,
+                    "link_is_active": link.isActive,
+                    "interaction_type": isEditingTitle ? "save_title" : "general_tap"
+                ]
+            )
+            
             // Dismiss editing when tapping outside the title
             if isEditingTitle {
                 saveTitle()
@@ -228,12 +367,32 @@ struct LinkCard: View {
         let trimmedTitle = editingTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedTitle.isEmpty && trimmedTitle != link.title {
             onUpdateTitle(trimmedTitle)
+        } else if trimmedTitle.isEmpty || trimmedTitle == link.title {
+            // Analytics: Track title edit cancelled
+            Analytics.shared.track(
+                event: "link_title_edit_cancelled",
+                properties: [
+                    AnalyticsProperty.screenName: "links",
+                    "link_id": link.id,
+                    "reason": trimmedTitle.isEmpty ? "empty_title" : "no_change"
+                ]
+            )
         }
         isEditingTitle = false
         isTitleFieldFocused = false
     }
     
     private func cancelEditing() {
+        // Analytics: Track explicit title edit cancellation
+        Analytics.shared.track(
+            event: "link_title_edit_cancelled",
+            properties: [
+                AnalyticsProperty.screenName: "links",
+                "link_id": link.id,
+                "reason": "explicit_cancel"
+            ]
+        )
+        
         isEditingTitle = false
         editingTitle = link.title
         isTitleFieldFocused = false
@@ -263,6 +422,7 @@ struct UseLinkInstructionsView: View {
     let link: RatingLink
     @Environment(\.dismiss) private var dismiss
     @State private var showCopiedMessage = false
+    @State private var hasTrackedView = false
     
     var body: some View {
         NavigationView {
@@ -296,11 +456,30 @@ struct UseLinkInstructionsView: View {
                                 .cornerRadius(8)
                             
                             Button(action: {
+                                // Analytics: Track link copy
+                                Analytics.shared.trackTap(
+                                    elementId: "copy_link_button",
+                                    screenName: "link_instructions",
+                                    properties: [
+                                        "link_id": link.id,
+                                        "link_url": link.url
+                                    ]
+                                )
+                                
                                 let impactFeedback = UIImpactFeedbackGenerator(style: .light)
                                 impactFeedback.impactOccurred()
                                 
                                 UIPasteboard.general.string = "https://\(link.url)"
                                 showCopiedMessage = true
+                                
+                                // Analytics: Track successful copy
+                                Analytics.shared.track(
+                                    event: "link_copied_to_clipboard",
+                                    properties: [
+                                        AnalyticsProperty.screenName: "link_instructions",
+                                        "link_id": link.id
+                                    ]
+                                )
                                 
                                 // Reset message after 2 seconds
                                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
@@ -344,6 +523,17 @@ struct UseLinkInstructionsView: View {
                                 .padding(.vertical, 6)
                                 .background(Color.blue.opacity(0.2))
                                 .cornerRadius(6)
+                                .onTapGesture {
+                                    // Analytics: Track platform selection
+                                    Analytics.shared.trackTap(
+                                        elementId: "platform_tag",
+                                        screenName: "link_instructions",
+                                        properties: [
+                                            "platform": "instagram",
+                                            "link_id": link.id
+                                        ]
+                                    )
+                                }
                             
                             Text("Snapchat")
                                 .font(.system(size: 14, weight: .semibold))
@@ -351,6 +541,17 @@ struct UseLinkInstructionsView: View {
                                 .padding(.vertical, 6)
                                 .background(Color.yellow.opacity(0.2))
                                 .cornerRadius(6)
+                                .onTapGesture {
+                                    // Analytics: Track platform selection
+                                    Analytics.shared.trackTap(
+                                        elementId: "platform_tag",
+                                        screenName: "link_instructions",
+                                        properties: [
+                                            "platform": "snapchat",
+                                            "link_id": link.id
+                                        ]
+                                    )
+                                }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -380,6 +581,16 @@ struct UseLinkInstructionsView: View {
                     
                     // Done Button
                     Button(action: {
+                        // Analytics: Track instructions completion
+                        Analytics.shared.trackTap(
+                            elementId: "done_button",
+                            screenName: "link_instructions",
+                            properties: [
+                                "link_id": link.id,
+                                "completion_type": "done_button"
+                            ]
+                        )
+                        
                         dismiss()
                     }) {
                         Text("Done")
@@ -397,11 +608,36 @@ struct UseLinkInstructionsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Close") {
+                        // Analytics: Track instructions close
+                        Analytics.shared.trackTap(
+                            elementId: "close_button",
+                            screenName: "link_instructions",
+                            properties: [
+                                "link_id": link.id,
+                                "completion_type": "close_button"
+                            ]
+                        )
+                        
                         dismiss()
                     }
                     .foregroundColor(.black)
                     .fontWeight(.semibold)
                 }
+            }
+        }
+        .onAppear {
+            // Analytics: Track instructions view (only once per session)
+            if !hasTrackedView {
+                Analytics.shared.trackScreen(
+                    name: "link_instructions",
+                    properties: [
+                        "link_id": link.id,
+                        "link_earnings": link.earnings,
+                        "link_rating_count": link.ratingCount,
+                        "link_is_active": link.isActive
+                    ]
+                )
+                hasTrackedView = true
             }
         }
     }

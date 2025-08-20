@@ -60,6 +60,7 @@ struct WithdrawView: View {
             }
         }
         .onAppear {
+            Analytics.shared.trackScreen(name: "withdraw")
             dashboardViewModel.loadData()
             withdrawalViewModel.loadWithdrawals()
         }
@@ -250,6 +251,7 @@ struct BankDetailsView: View {
                 
                 // Continue Button
                 Button(action: {
+                    Analytics.shared.trackTap(elementId: "continue_to_address_button", screenName: "withdraw_bank_details")
                     onNext()
                 }) {
                     HStack {
@@ -282,6 +284,9 @@ struct BankDetailsView: View {
             }
         }
         .tint(.black)
+        .onAppear {
+            Analytics.shared.trackScreen(name: "withdraw_bank_details")
+        }
     }
     
     private var isBankDetailsValid: Bool {
@@ -410,6 +415,7 @@ struct AddressDetailsView: View {
                 // Navigation Buttons
                 VStack(spacing: 12) {
                     Button(action: {
+                        Analytics.shared.trackTap(elementId: "continue_to_review_button", screenName: "withdraw_address_details")
                         onNext()
                     }) {
                         HStack {
@@ -428,6 +434,7 @@ struct AddressDetailsView: View {
                     .padding(.vertical, 8)
                     
                     Button(action: {
+                        Analytics.shared.trackTap(elementId: "back_button", screenName: "withdraw_address_details")
                         onBack()
                     }) {
                         HStack {
@@ -456,6 +463,9 @@ struct AddressDetailsView: View {
             }
         }
         .tint(.black)
+        .onAppear {
+            Analytics.shared.trackScreen(name: "withdraw_address_details")
+        }
     }
     
     private var isAddressValid: Bool {
@@ -562,6 +572,7 @@ struct WithdrawalConfirmationView: View {
                 // Action Buttons
                 VStack(spacing: 12) {
                     Button(action: {
+                        Analytics.shared.trackTap(elementId: "submit_withdrawal_button", screenName: "withdraw_confirmation")
                         submitWithdrawal()
                     }) {
                         HStack {
@@ -585,6 +596,7 @@ struct WithdrawalConfirmationView: View {
                     .padding(.vertical, 8)
                     
                     Button(action: {
+                        Analytics.shared.trackTap(elementId: "back_button", screenName: "withdraw_confirmation")
                         onBack()
                     }) {
                         HStack {
@@ -623,6 +635,9 @@ struct WithdrawalConfirmationView: View {
             }
         }
         .tint(.black)
+        .onAppear {
+            Analytics.shared.trackScreen(name: "withdraw_confirmation")
+        }
     }
     
     private func submitWithdrawal() {

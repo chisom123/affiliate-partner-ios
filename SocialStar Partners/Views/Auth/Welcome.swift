@@ -44,6 +44,12 @@ struct WelcomeView: View {
                         HStack(spacing: 16) {
                             // Sign Up Button
                             Button(action: {
+                                // Analytics: Track sign up button tap
+                                Analytics.shared.trackTap(
+                                    elementId: "sign_up_button",
+                                    screenName: "welcome"
+                                )
+                                
                                 navigateToEmail = true
                             }) {
                                 Text("Sign Up")
@@ -57,6 +63,12 @@ struct WelcomeView: View {
                             
                             // Sign In Button
                             Button(action: {
+                                // Analytics: Track log in button tap
+                                Analytics.shared.trackTap(
+                                    elementId: "log_in_button",
+                                    screenName: "welcome"
+                                )
+                                
                                 navigateToSignIn = true
                             }) {
                                 Text("Log In")
@@ -93,5 +105,9 @@ struct WelcomeView: View {
             .navigationBarHidden(true)
         }
         .navigationViewStyle(StackNavigationViewStyle())
+        .onAppear {
+            // Analytics: Track welcome screen view
+            Analytics.shared.trackScreen(name: "welcome")
+        }
     }
 }

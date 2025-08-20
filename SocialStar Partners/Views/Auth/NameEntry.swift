@@ -44,12 +44,30 @@ struct NameView: View {
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
+                    .onAppear {
+                        // Analytics: Track signup error
+                        Analytics.shared.trackError(
+                            message: errorMessage,
+                            properties: [
+                                AnalyticsProperty.screenName: "name_entry"
+                            ]
+                        )
+                    }
             }
             
             if isLoading {
                 ProgressView()
             } else {
                 Button(action: {
+                    // Analytics: Track account creation attempt
+                    Analytics.shared.trackTap(
+                        elementId: "complete_setup_button",
+                        screenName: "name_entry",
+                        properties: [
+                            "form_valid": !firstName.isEmpty && !lastName.isEmpty
+                        ]
+                    )
+                    
                     createAccount()
                 }) {
                     Text("Complete Setup")
@@ -68,6 +86,10 @@ struct NameView: View {
         .padding()
         .navigationBarTitleDisplayMode(.inline)
         .tint(.black)
+        .onAppear {
+            // Analytics: Track name entry screen view
+            Analytics.shared.trackScreen(name: "name_entry")
+        }
     }
     
     private func createAccount() {
@@ -79,6 +101,16 @@ struct NameView: View {
             if let error = error {
                 errorMessage = error.localizedDescription
                 isLoading = false
+                
+                // Analytics: Track account creation failure
+                Analytics.shared.track(
+                    event: "account_creation_failed",
+                    properties: [
+                        AnalyticsProperty.screenName: "name_entry",
+                        AnalyticsProperty.errorMessage: error.localizedDescription,
+                        "failure_stage": "firebase_auth"
+                    ]
+                )
                 return
             }
             
@@ -86,6 +118,16 @@ struct NameView: View {
             guard let user = result?.user else {
                 errorMessage = "Failed to get user information"
                 isLoading = false
+                
+                // Analytics: Track user info failure
+                Analytics.shared.track(
+                    event: "account_creation_failed",
+                    properties: [
+                        AnalyticsProperty.screenName: "name_entry",
+                        AnalyticsProperty.errorMessage: "Failed to get user information",
+                        "failure_stage": "user_info"
+                    ]
+                )
                 return
             }
             
@@ -114,11 +156,41 @@ struct NameView: View {
             
             if let error = error {
                 errorMessage = "Failed to create account: \(error.localizedDescription)"
+                
+                // Analytics: Track Firestore creation failure
+                Analytics.shared.track(
+                    event: "account_creation_failed",
+                    properties: [
+                        AnalyticsProperty.screenName: "name_entry",
+                        AnalyticsProperty.errorMessage: error.localizedDescription,
+                        "failure_stage": "firestore_document"
+                    ]
+                )
                 return
             }
             
+            // Analytics: Track successful account creation
+            Analytics.shared.track(
+                event: "account_created_successfully",
+                properties: [
+                    AnalyticsProperty.screenName: "name_entry",
+                    "user_id": user.uid
+                ]
+            )
+            
             // Account created successfully - navigate to dashboard
             NotificationCenter.default.post(name: .authStateDidChange, object: nil)
+            
+            // After successful authentication
+            if let user = Auth.auth().currentUser {
+                Analytics.shared.identify(
+                    userId: user.uid,
+                    properties: [
+                        "email": user.email ?? "",
+                        "created_at": user.metadata.creationDate?.timeIntervalSince1970 ?? 0
+                    ]
+                )
+            }
         }
     }
 }

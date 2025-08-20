@@ -37,12 +37,30 @@ struct SignInView: View {
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
+                    .onAppear {
+                        // Analytics: Track signin error
+                        Analytics.shared.trackError(
+                            message: errorMessage,
+                            properties: [
+                                AnalyticsProperty.screenName: "sign_in"
+                            ]
+                        )
+                    }
             }
             
             if isLoading {
                 ProgressView()
             } else {
                 Button(action: {
+                    // Analytics: Track signin attempt
+                    Analytics.shared.trackTap(
+                        elementId: "signin_button",
+                        screenName: "sign_in",
+                        properties: [
+                            "form_valid": !email.isEmpty && !password.isEmpty
+                        ]
+                    )
+                    
                     signIn()
                 }) {
                     Text("Log In")
@@ -61,6 +79,10 @@ struct SignInView: View {
         .padding()
         .navigationBarTitleDisplayMode(.inline)
         .tint(.black)
+        .onAppear {
+            // Analytics: Track signin screen view
+            Analytics.shared.trackScreen(name: "sign_in")
+        }
     }
     
     private func signIn() {
@@ -72,11 +94,39 @@ struct SignInView: View {
             
             if let error = error {
                 errorMessage = error.localizedDescription
+                
+                // Analytics: Track signin failure
+                Analytics.shared.track(
+                    event: "signin_failed",
+                    properties: [
+                        AnalyticsProperty.screenName: "sign_in",
+                        AnalyticsProperty.errorMessage: error.localizedDescription
+                    ]
+                )
                 return
             }
             
+            // Analytics: Track successful signin
+            Analytics.shared.track(
+                event: "signin_successful",
+                properties: [
+                    AnalyticsProperty.screenName: "sign_in"
+                ]
+            )
+            
             // Sign in successful - trigger app state change
             NotificationCenter.default.post(name: .authStateDidChange, object: nil)
+            
+            // After successful authentication
+            if let user = Auth.auth().currentUser {
+                Analytics.shared.identify(
+                    userId: user.uid,
+                    properties: [
+                        "email": user.email ?? "",
+                        "created_at": user.metadata.creationDate?.timeIntervalSince1970 ?? 0
+                    ]
+                )
+            }
         }
     }
 }
