@@ -9,10 +9,19 @@ struct LinksView: View {
             GeometryReader { geometry in
                 ScrollView {
                     VStack(spacing: 20) {
-        
+                        // Show loading state during initial load
+                        if viewModel.isInitialDataLoad && viewModel.ratingLinks.isEmpty {
+                            VStack(spacing: 16) {
+                                ProgressView()
+                                    .scaleEffect(1.2)
+                                    .tint(.gray)
+                            }
+                            .padding(.vertical, 100)
+                            .frame(maxWidth: .infinity)
+                        }
                         // Rating Links List
-                        if viewModel.ratingLinks.isEmpty {
-                            // Centered empty state
+                        else if viewModel.ratingLinks.isEmpty {
+                            // Centered empty state - only show after initial load
                             VStack(spacing: 16) {
                                 VStack(spacing: 8) {
                                     Text("No Rating Links Yet")

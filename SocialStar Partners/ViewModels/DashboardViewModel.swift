@@ -7,10 +7,13 @@ class DashboardViewModel: ObservableObject {
     @Published var affiliateData: AffiliateData?
     @Published var ratingLinks: [RatingLink] = []
     @Published var isLoading = false
+    @Published var isInitialDataLoad = true
     @Published var errorMessage = ""
     
     private var linkListener: ListenerRegistration?
     private var affiliateListener: ListenerRegistration?
+    private var hasReceivedInitialLinkData = false
+    private var hasReceivedInitialAffiliateData = false
     
     var totalEarnings: Double {
         ratingLinks.reduce(0) { $0 + $1.earnings }
@@ -28,6 +31,11 @@ class DashboardViewModel: ObservableObject {
     func loadData() {
         guard let user = Auth.auth().currentUser else { return }
         
+        // Reset loading state for fresh data load
+        isInitialDataLoad = true
+        hasReceivedInitialLinkData = false
+        hasReceivedInitialAffiliateData = false
+        
         // Analytics: Track data loading
         Analytics.shared.track(
             event: "dashboard_data_load_started",
@@ -38,6 +46,12 @@ class DashboardViewModel: ObservableObject {
         
         setupAffiliateListener(userId: user.uid)
         setupRatingLinksListener(userId: user.uid)
+    }
+    
+    private func checkInitialLoadComplete() {
+        if hasReceivedInitialLinkData && hasReceivedInitialAffiliateData {
+            isInitialDataLoad = false
+        }
     }
     
     private func setupAffiliateListener(userId: String) {
@@ -52,6 +66,10 @@ class DashboardViewModel: ObservableObject {
                         Analytics.shared.trackError(
                             message: "Affiliate data listener error: \(error.localizedDescription)"
                         )
+                        
+                        // Mark as received even on error to prevent infinite loading
+                        self?.hasReceivedInitialAffiliateData = true
+                        self?.checkInitialLoadComplete()
                         return
                     }
                     
@@ -71,6 +89,10 @@ class DashboardViewModel: ObservableObject {
                             ]
                         )
                     }
+                    
+                    // Mark initial data as received
+                    self?.hasReceivedInitialAffiliateData = true
+                    self?.checkInitialLoadComplete()
                 }
             }
     }
@@ -87,10 +109,18 @@ class DashboardViewModel: ObservableObject {
                         Analytics.shared.trackError(
                             message: "Rating links listener error: \(error.localizedDescription)"
                         )
+                        
+                        // Mark as received even on error to prevent infinite loading
+                        self?.hasReceivedInitialLinkData = true
+                        self?.checkInitialLoadComplete()
                         return
                     }
                     
-                    guard let documents = snapshot?.documents else { return }
+                    guard let documents = snapshot?.documents else {
+                        self?.hasReceivedInitialLinkData = true
+                        self?.checkInitialLoadComplete()
+                        return
+                    }
                     
                     var links = documents.compactMap { doc in
                         RatingLink(documentID: doc.documentID, data: doc.data())
@@ -109,6 +139,10 @@ class DashboardViewModel: ObservableObject {
                             "active_links": links.filter { $0.isActive }.count
                         ]
                     )
+                    
+                    // Mark initial data as received
+                    self?.hasReceivedInitialLinkData = true
+                    self?.checkInitialLoadComplete()
                 }
             }
     }
