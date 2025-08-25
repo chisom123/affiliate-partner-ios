@@ -76,13 +76,21 @@ struct NameView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 32)
                         .padding(.vertical, 12)
-                        .background(Color.blue)
+                        .background(
+                            (firstName.isEmpty || lastName.isEmpty) ?
+                            Color.gray.opacity(0.5) :
+                            Color.blue
+                        )
                         .cornerRadius(8)
                 }
                 .disabled(firstName.isEmpty || lastName.isEmpty)
                 .padding(.horizontal)
             }
         }
+        .padding()
+        .padding(.vertical, 30)
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(6)
         .padding()
         .navigationBarTitleDisplayMode(.inline)
         .tint(.black)

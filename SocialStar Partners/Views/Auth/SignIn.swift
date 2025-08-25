@@ -69,13 +69,21 @@ struct SignInView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 32)
                         .padding(.vertical, 12)
-                        .background(Color.blue)
+                        .background(
+                            (email.isEmpty || password.isEmpty) ?
+                            Color.gray.opacity(0.5) :
+                            Color.blue
+                        )
                         .cornerRadius(8)
                 }
                 .disabled(email.isEmpty || password.isEmpty)
                 .padding(.horizontal)
             }
         }
+        .padding()
+        .padding(.vertical, 30)
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(6)
         .padding()
         .navigationBarTitleDisplayMode(.inline)
         .tint(.black)

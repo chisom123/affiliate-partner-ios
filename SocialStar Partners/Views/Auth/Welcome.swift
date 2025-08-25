@@ -28,11 +28,6 @@ struct WelcomeView: View {
                                 .multilineTextAlignment(.center)
                                 .lineLimit(2)
                                 .minimumScaleFactor(0.8)
-                            
-                            Text("Get paid for your story ratings")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundColor(.gray)
-                                .multilineTextAlignment(.center)
                         }
                         .padding(.horizontal, 32)
                         
