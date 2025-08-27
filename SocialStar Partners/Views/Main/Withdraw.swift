@@ -19,7 +19,6 @@ struct WithdrawView: View {
                         bankDetails: $bankDetails,
                         onNext: { currentStep = 2 },
                         availableBalance: dashboardViewModel.affiliateData?.balance ?? 0.0,
-                        canWithdrawToday: withdrawalViewModel.canWithdrawToday(),
                         pendingAmount: withdrawalViewModel.pendingWithdrawalAmount()
                     )
                 case 2:
@@ -42,7 +41,6 @@ struct WithdrawView: View {
                         bankDetails: $bankDetails,
                         onNext: { currentStep = 2 },
                         availableBalance: dashboardViewModel.affiliateData?.balance ?? 0.0,
-                        canWithdrawToday: withdrawalViewModel.canWithdrawToday(),
                         pendingAmount: withdrawalViewModel.pendingWithdrawalAmount()
                     )
                 }
@@ -93,7 +91,6 @@ struct BankDetailsView: View {
     @Binding var bankDetails: BankDetailsData
     let onNext: () -> Void
     let availableBalance: Double
-    let canWithdrawToday: Bool
     let pendingAmount: Double
     
     @FocusState private var isInputActive: Bool
@@ -262,15 +259,15 @@ struct BankDetailsView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(
-                        (!isBankDetailsValid || !canWithdrawToday || availableBalance < 0.25) ? Color(.systemGray4) : Color.blue
+                        (!isBankDetailsValid || availableBalance < 5) ? Color(.systemGray4) : Color.blue
                     )
                     .foregroundColor(
-                        (!isBankDetailsValid || !canWithdrawToday || availableBalance < 0.25) ? Color(.systemGray2) : .white
+                        (!isBankDetailsValid || availableBalance < 5) ? Color(.systemGray2) : .white
                     )
                     .cornerRadius(10)
                     .padding(.horizontal, 16)
                 }
-                .disabled(!isBankDetailsValid || !canWithdrawToday || availableBalance < 0.25)
+                .disabled(!isBankDetailsValid || availableBalance < 5)
                 .padding(.vertical, 8)
             }
         }
@@ -476,7 +473,7 @@ struct AddressDetailsView: View {
     }
 }
 
-// MARK: - Step 3: Confirmation View
+// MARK: - Step 3: Fixed Confirmation View
 struct WithdrawalConfirmationView: View {
     let bankDetails: BankDetailsData
     let addressDetails: AddressDetailsData
@@ -484,6 +481,8 @@ struct WithdrawalConfirmationView: View {
     let withdrawalViewModel: WithdrawalViewModel
     let onBack: () -> Void
     let onSuccess: () -> Void
+    
+    @State private var isSubmitting = false
     
     var body: some View {
         ScrollView {
@@ -576,7 +575,7 @@ struct WithdrawalConfirmationView: View {
                         submitWithdrawal()
                     }) {
                         HStack {
-                            if withdrawalViewModel.isLoading {
+                            if isSubmitting {
                                 ProgressView()
                                     .scaleEffect(0.8)
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -588,11 +587,11 @@ struct WithdrawalConfirmationView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(withdrawalViewModel.isLoading ? Color(.systemGray4) : Color.blue)
-                        .foregroundColor(withdrawalViewModel.isLoading ? Color(.systemGray2) : .white)
+                        .background(isSubmitting ? Color(.systemGray4) : Color.blue)
+                        .foregroundColor(isSubmitting ? Color(.systemGray2) : .white)
                         .cornerRadius(10)
                     }
-                    .disabled(withdrawalViewModel.isLoading)
+                    .disabled(isSubmitting)
                     .padding(.vertical, 8)
                     
                     Button(action: {
@@ -609,23 +608,16 @@ struct WithdrawalConfirmationView: View {
                         .cornerRadius(10)
                         .padding(.horizontal, 16)
                     }
+                    .disabled(isSubmitting) // Also disable back button during submission
                     .padding(.vertical, 8)
                 }
                 .padding(.horizontal)
                 
-                // Messages
+                // Error Messages Only
                 VStack(spacing: 8) {
                     if !withdrawalViewModel.errorMessage.isEmpty {
                         Text(withdrawalViewModel.errorMessage)
                             .foregroundColor(.red)
-                            .font(.system(size: 14))
-                            .fontWeight(.semibold)
-                            .padding(.horizontal)
-                    }
-                    
-                    if !withdrawalViewModel.successMessage.isEmpty {
-                        Text(withdrawalViewModel.successMessage)
-                            .foregroundColor(.green)
                             .font(.system(size: 14))
                             .fontWeight(.semibold)
                             .padding(.horizontal)
@@ -641,6 +633,11 @@ struct WithdrawalConfirmationView: View {
     }
     
     private func submitWithdrawal() {
+        // Prevent multiple submissions
+        guard !isSubmitting else { return }
+        
+        isSubmitting = true
+        
         let bankAccount = BankAccount(
             accountHolderName: bankDetails.fullName,
             bankName: bankDetails.bankName,
@@ -659,11 +656,14 @@ struct WithdrawalConfirmationView: View {
                 bankAccount: bankAccount
             )
             
-            // Close modal on success
-            if !withdrawalViewModel.successMessage.isEmpty {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                    onSuccess()
+            await MainActor.run {
+                isSubmitting = false
+                
+                // Navigate immediately on success, stay on error
+                if !withdrawalViewModel.successMessage.isEmpty {
+                    onSuccess() // Immediate navigation
                 }
+                // If there's an error, user stays on this view to see the error message
             }
         }
     }

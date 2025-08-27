@@ -73,7 +73,7 @@ extension AffiliateData {
     }
     
     var canWithdraw: Bool {
-        balance >= 0.25
+        balance >= 5
     }
     
     var lifetimeEarnings: Double {

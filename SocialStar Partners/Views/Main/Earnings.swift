@@ -18,28 +18,41 @@ struct EarningsView: View {
                             .font(.system(size: 36, weight: .bold))
                             .foregroundColor(.green)
                         
-                        if let affiliateData = viewModel.affiliateData, affiliateData.canWithdraw {
-                            Button(action: {
-                                // Analytics: Track withdraw button tap
-                                Analytics.shared.trackTap(
-                                    elementId: "withdraw_button",
-                                    screenName: "earnings",
-                                    properties: [
-                                        "available_balance": affiliateData.balance,
-                                        "can_withdraw": affiliateData.canWithdraw
-                                    ]
-                                )
+                        if let affiliateData = viewModel.affiliateData {
+                            VStack(spacing: 8) {
+                                // Always show withdraw button
+                                Button(action: {
+                                    if affiliateData.canWithdraw {
+                                        // Analytics: Track withdraw button tap
+                                        Analytics.shared.trackTap(
+                                            elementId: "withdraw_button",
+                                            screenName: "earnings",
+                                            properties: [
+                                                "available_balance": affiliateData.balance
+                                            ]
+                                        )
+                                        
+                                        showingWithdrawSheet = true
+                                    }
+                                }) {
+                                    Text("Withdraw")
+                                        .frame(maxWidth: .infinity)
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(affiliateData.canWithdraw ? .white : Color(.systemGray2))
+                                        .padding(.horizontal, 32)
+                                        .padding(.vertical, 12)
+                                        .background(affiliateData.canWithdraw ? Color.blue : Color(.systemGray4))
+                                        .cornerRadius(8)
+                                }
+                                .disabled(!affiliateData.canWithdraw)
                                 
-                                showingWithdrawSheet = true
-                            }) {
-                                Text("Withdraw")
-                                    .frame(maxWidth: .infinity)
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(.white)
-                                    .padding(.horizontal, 32)
-                                    .padding(.vertical, 12)
-                                    .background(Color.blue)
-                                    .cornerRadius(8)
+                                // Show message when balance is below $5
+                                if !affiliateData.canWithdraw && affiliateData.balance > 0 {
+                                    Text("Minimum withdrawal is $5.00")
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundColor(.orange)
+                                        .padding(.vertical)
+                                }
                             }
                         }
                     }

@@ -66,7 +66,7 @@ class WithdrawalViewModel: ObservableObject {
             }
     }
     
-    // MARK: - Submit Withdrawal Request (Updated with Encryption)
+    // MARK: - Submit Withdrawal Request (Fixed - No Auto-Clear)
     func submitWithdrawal(amount: Double, bankAccount: BankAccount) async {
         guard let user = Auth.auth().currentUser else {
             await MainActor.run {
@@ -139,13 +139,7 @@ class WithdrawalViewModel: ObservableObject {
                     ]
                 )
                 
-                // Clear success message after 3 seconds
-                Task {
-                    try await Task.sleep(nanoseconds: 3_000_000_000)
-                    await MainActor.run {
-                        self.successMessage = ""
-                    }
-                }
+                // REMOVED: Auto-clearing success message - let the UI handle navigation timing
             }
             
         } catch {
@@ -168,30 +162,6 @@ class WithdrawalViewModel: ObservableObject {
                 )
             }
         }
-    }
-    
-    // MARK: - Check if user can withdraw today
-    func canWithdrawToday() -> Bool {
-        let today = Calendar.current.startOfDay(for: Date())
-        
-        // Check if user already has a withdrawal today
-        let todayWithdrawals = withdrawals.filter { withdrawal in
-            let withdrawalDate = Calendar.current.startOfDay(for: withdrawal.requestedAt)
-            return withdrawalDate == today
-        }
-        
-        let canWithdraw = todayWithdrawals.isEmpty
-        
-        // Analytics: Track withdrawal eligibility check
-        Analytics.shared.track(
-            event: "withdrawal_eligibility_checked",
-            properties: [
-                "can_withdraw": canWithdraw,
-                "today_withdrawals_count": todayWithdrawals.count
-            ]
-        )
-        
-        return canWithdraw
     }
     
     // MARK: - Get pending withdrawal amount
