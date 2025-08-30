@@ -444,7 +444,7 @@ struct UseLinkInstructionsView: View {
                     
                     // Step 1: Copy Link
                     VStack(alignment: .leading, spacing: 15) {
-                        HStack {
+                        HStack(alignment: .center) {
                             Text("1")
                                 .font(.system(size: 22, weight: .bold))
                                 .foregroundColor(Color.green)
@@ -460,7 +460,8 @@ struct UseLinkInstructionsView: View {
                         VStack(spacing: 12) {
                             Text("https://\(link.url)")
                                 .frame(maxWidth: .infinity)
-                                .padding()
+                                .padding(5)
+                                .padding(.vertical, 10)
                                 .background(Color.gray.opacity(0.1))
                                 .cornerRadius(8)
                             
@@ -512,7 +513,7 @@ struct UseLinkInstructionsView: View {
                     
                     // Step 2: Add to Story
                     VStack(alignment: .leading, spacing: 15) {
-                        HStack {
+                        HStack(alignment: .center) {
                             Text("2")
                                 .font(.system(size: 22, weight: .bold))
                                 .foregroundColor(Color.green)
@@ -524,13 +525,14 @@ struct UseLinkInstructionsView: View {
                         Text("Add the link to your Instagram or Snapchat story when sharing a photo or video")
                             .font(.system(size: 16))
                             .foregroundColor(.gray)
+                            .lineSpacing(2.5)
                         
                         HStack {
                             Text("Instagram")
                                 .font(.system(size: 14, weight: .semibold))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
-                                .background(Color.blue.opacity(0.2))
+                                .background(Color.pink.opacity(0.2))
                                 .cornerRadius(6)
                                 .onTapGesture {
                                     // Analytics: Track platform selection
@@ -570,46 +572,24 @@ struct UseLinkInstructionsView: View {
                     
                     // Step 3: Start Earning
                     VStack(alignment: .leading, spacing: 15) {
-                        HStack {
+                        HStack(alignment: .center) {
                             Text("3")
                                 .font(.system(size: 22, weight: .bold))
                                 .foregroundColor(Color.green)
                             
-                            Text("Start Earning")
+                            Text("Get Ratings & Start Earning")
                                 .font(.system(size: 18, weight: .semibold))
                         }
                         
                         Text("Earn $0.25 for every story rating you receive. Track your earnings in real-time")
                             .font(.system(size: 16))
                             .foregroundColor(.gray)
+                            .lineSpacing(2.5)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(8)
-                    
-                    // Done Button
-                    Button(action: {
-                        // Analytics: Track instructions completion
-                        Analytics.shared.trackTap(
-                            elementId: "done_button",
-                            screenName: "link_instructions",
-                            properties: [
-                                "link_id": link.id,
-                                "completion_type": "done_button"
-                            ]
-                        )
-                        
-                        dismiss()
-                    }) {
-                        Text("Done")
-                            .font(.system(size: 18, weight: .bold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(Color.blue)
-                            .foregroundColor(.white)
-                            .cornerRadius(8)
-                    }
                 }
                 .padding()
             }
