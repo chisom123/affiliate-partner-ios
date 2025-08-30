@@ -496,7 +496,7 @@ struct UseLinkInstructionsView: View {
                                     showCopiedMessage = false
                                 }
                             }) {
-                                Text(showCopiedMessage ? "Link Copied!" : "Copy Link")
+                                Text(showCopiedMessage ? "Link Copied" : "Copy Link")
                                     .font(.system(size: 16, weight: .bold))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
