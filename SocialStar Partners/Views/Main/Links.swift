@@ -432,6 +432,84 @@ struct UseLinkInstructionsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showCopiedMessage = false
     @State private var hasTrackedView = false
+    @State private var calculatorRatings = 50.0
+    
+    // Calculator section as a computed property to reduce complexity
+    private var calculatorSection: some View {
+        VStack(spacing: 15) {
+            calculatorHeader
+            calculatorContent
+        }
+        .padding()
+        .background(Color.blue.opacity(0.05))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+        )
+    }
+    
+    private var calculatorHeader: some View {
+        HStack {
+            Text("Earnings Calculator")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.blue)
+            
+            Spacer()
+        }
+    }
+    
+    private var calculatorContent: some View {
+        VStack(spacing: 12) {
+            ratingsRow
+            calculatorSlider
+            earningsRow
+        }
+    }
+    
+    private var ratingsRow: some View {
+        HStack {
+            Text("Ratings")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Text("\(Int(calculatorRatings))")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.primary)
+        }
+    }
+    
+    private var calculatorSlider: some View {
+        Slider(value: $calculatorRatings, in: 1...100, step: 1)
+            .accentColor(.blue)
+            .onChange(of: calculatorRatings) { _ in
+                Analytics.shared.track(
+                    event: "earnings_calculator_used",
+                    properties: [
+                        AnalyticsProperty.screenName: "link_instructions",
+                        "link_id": link.id,
+                        "calculated_ratings": Int(calculatorRatings),
+                        "calculated_earnings": calculatorRatings * 0.25
+                    ]
+                )
+            }
+    }
+    
+    private var earningsRow: some View {
+        HStack {
+            Text("Earnings")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Text("$\(calculatorRatings * 0.25, specifier: "%.2f")")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.green)
+        }
+    }
     
     var body: some View {
         NavigationView {
@@ -570,7 +648,7 @@ struct UseLinkInstructionsView: View {
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(8)
                     
-                    // Step 3: Start Earning
+                    // Step 3: Start Earning (with Calculator)
                     VStack(alignment: .leading, spacing: 15) {
                         HStack(alignment: .center) {
                             Text("3")
@@ -581,10 +659,13 @@ struct UseLinkInstructionsView: View {
                                 .font(.system(size: 18, weight: .semibold))
                         }
                         
-                        Text("Earn $0.25 for every story rating you receive. Track your earnings in real-time")
+                        Text("Earn $0.25 for every rating your story receives")
                             .font(.system(size: 16))
                             .foregroundColor(.gray)
                             .lineSpacing(2.5)
+                        
+                        // Earnings Calculator
+                        calculatorSection
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
@@ -603,7 +684,9 @@ struct UseLinkInstructionsView: View {
                             screenName: "link_instructions",
                             properties: [
                                 "link_id": link.id,
-                                "completion_type": "close_button"
+                                "completion_type": "close_button",
+                                "final_calculator_ratings": Int(calculatorRatings),
+                                "final_calculator_earnings": calculatorRatings * 0.25
                             ]
                         )
                         
