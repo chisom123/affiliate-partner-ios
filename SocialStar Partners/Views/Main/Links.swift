@@ -455,15 +455,13 @@ struct UseLinkInstructionsView: View {
     
     private var ratingsRow: some View {
         HStack {
-            Text("Ratings")
-                .font(.system(size: 14, weight: .medium))
+            Spacer()
+            
+            Text("\(Int(calculatorRatings)) Ratings")
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(.secondary)
             
             Spacer()
-            
-            Text("\(Int(calculatorRatings))")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.primary)
         }
     }
     
@@ -485,15 +483,13 @@ struct UseLinkInstructionsView: View {
     
     private var earningsRow: some View {
         HStack {
-            Text("Earnings")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.secondary)
-            
             Spacer()
             
             Text("$\(calculatorRatings * 0.25, specifier: "%.2f")")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.green)
+            
+            Spacer()
         }
     }
     
