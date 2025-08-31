@@ -433,6 +433,7 @@ struct UseLinkInstructionsView: View {
     @State private var showCopiedMessage = false
     @State private var hasTrackedView = false
     @State private var calculatorRatings = 50.0
+    @State private var showExamples = false
     
     // Calculator section as a computed property to reduce complexity
     private var calculatorSection: some View {
@@ -605,42 +606,27 @@ struct UseLinkInstructionsView: View {
                             .foregroundColor(.gray)
                             .lineSpacing(2.5)
                         
-                        HStack {
-                            Text("Instagram")
-                                .font(.system(size: 14, weight: .semibold))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.pink.opacity(0.2))
-                                .cornerRadius(6)
-                                .onTapGesture {
-                                    // Analytics: Track platform selection
-                                    Analytics.shared.trackTap(
-                                        elementId: "platform_tag",
-                                        screenName: "link_instructions",
-                                        properties: [
-                                            "platform": "instagram",
-                                            "link_id": link.id
-                                        ]
-                                    )
-                                }
+                        Button(action: {
+                            // Analytics: Track examples button tap
+                            Analytics.shared.trackTap(
+                                elementId: "see_examples_button",
+                                screenName: "link_instructions",
+                                properties: [
+                                    "link_id": link.id
+                                ]
+                            )
                             
-                            Text("Snapchat")
-                                .font(.system(size: 14, weight: .semibold))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color.yellow.opacity(0.2))
-                                .cornerRadius(6)
-                                .onTapGesture {
-                                    // Analytics: Track platform selection
-                                    Analytics.shared.trackTap(
-                                        elementId: "platform_tag",
-                                        screenName: "link_instructions",
-                                        properties: [
-                                            "platform": "snapchat",
-                                            "link_id": link.id
-                                        ]
-                                    )
-                                }
+                            showExamples = true
+                        }) {
+                            HStack(spacing: 4) {
+                                Text("See Examples")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.blue)
+                                
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.blue)
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -697,6 +683,9 @@ struct UseLinkInstructionsView: View {
                 }
             }
         }
+        .sheet(isPresented: $showExamples) {
+            ExamplesView()
+        }
         .onAppear {
             // Analytics: Track instructions view (only once per session)
             if !hasTrackedView {
@@ -710,6 +699,77 @@ struct UseLinkInstructionsView: View {
                     ]
                 )
                 hasTrackedView = true
+            }
+        }
+    }
+}
+
+struct ExamplesView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var currentIndex = 0
+    
+    // Replace with your actual screenshot names
+    private let exampleImages = ["example1", "example2"] // Your screenshot asset names
+    
+    var body: some View {
+        NavigationView {
+            VStack {
+                TabView(selection: $currentIndex) {
+                    ForEach(0..<exampleImages.count, id: \.self) { index in
+                        Image(exampleImages[index])
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .tag(index)
+                            .cornerRadius(8)
+                    }
+                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                
+                // Navigation arrows (optional - TabView already has swipe gestures)
+                HStack {
+                    Button(action: {
+                        withAnimation {
+                            currentIndex = max(0, currentIndex - 1)
+                        }
+                    }) {
+                        Image(systemName: "chevron.left")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(currentIndex > 0 ? .blue : .gray)
+                    }
+                    .disabled(currentIndex == 0)
+                    
+                    Spacer()
+                    
+                    Text("\(currentIndex + 1) of \(exampleImages.count)")
+                        .foregroundColor(.gray)
+                        .font(.system(size: 15, weight: .semibold))
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        withAnimation {
+                            currentIndex = min(exampleImages.count - 1, currentIndex + 1)
+                        }
+                    }) {
+                        Image(systemName: "chevron.right")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(currentIndex < exampleImages.count - 1 ? .blue : .gray)
+                    }
+                    .disabled(currentIndex == exampleImages.count - 1)
+                }
+                .padding()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                    .foregroundColor(.black)
+                    .fontWeight(.semibold)
+                }
             }
         }
     }
