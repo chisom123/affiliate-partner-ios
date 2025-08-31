@@ -612,18 +612,6 @@ struct WithdrawalConfirmationView: View {
                     .padding(.vertical, 8)
                 }
                 .padding(.horizontal)
-                
-                // Error Messages Only
-                VStack(spacing: 8) {
-                    if !withdrawalViewModel.errorMessage.isEmpty {
-                        Text(withdrawalViewModel.errorMessage)
-                            .foregroundColor(.red)
-                            .font(.system(size: 14))
-                            .fontWeight(.semibold)
-                            .padding(.horizontal)
-                    }
-                }
-                .padding(.bottom, 20)
             }
         }
         .tint(.black)
