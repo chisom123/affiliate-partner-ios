@@ -273,43 +273,44 @@ struct LinkCard: View {
                 }
             }
             
-            // Earnings and Ratings
-            HStack {
-                VStack(alignment: .leading) {  // Left align the earnings section
+            HStack(spacing: 16) {
+                // Earnings Section
+                VStack(alignment: .center, spacing: 4) {
                     Text("$\(link.earnings, specifier: "%.2f")")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.green)
                     Text("Earned")
                         .font(.system(size: 12))
                         .foregroundColor(.gray)
                 }
+                .frame(maxWidth: .infinity, minHeight: 60)  // Fixed height for consistency
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(6)
                 
-                Spacer()
-            }
-            
-            // Average Rating Display
-            VStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    Text("\(link.averageRating, specifier: "%.1f")")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(link.hasRatings ? .orange : .gray)
-                    
-                    HStack(spacing: 2) {
-                        ForEach(1...5, id: \.self) { star in
-                            Text("★")
-                                .font(.system(size: 14))
-                                .foregroundColor(link.hasRatings && Double(star) <= link.averageRating.rounded() ? .orange : .gray.opacity(0.5))
+                // Rating Section
+                VStack(alignment: .center, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text("\(link.averageRating, specifier: "%.1f")")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(link.hasRatings ? .orange : .gray)
+                        
+                        HStack(spacing: 2) {
+                            ForEach(1...5, id: \.self) { star in
+                                Text("★")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(link.hasRatings && Double(star) <= link.averageRating.rounded() ? .orange : .gray.opacity(0.5))
+                            }
                         }
                     }
+                    
+                    Text("\(link.ratingCount) rating\(link.ratingCount != 1 ? "s" : "")")
+                        .font(.system(size: 12))
+                        .foregroundColor(.gray)
                 }
-                
-                Text("Average from \(link.ratingCount) rating\(link.ratingCount != 1 ? "s" : "")")
-                    .font(.system(size: 12))
-                    .foregroundColor(.gray)
+                .frame(maxWidth: .infinity, minHeight: 60)  // Fixed height for consistency
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(6)
             }
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-            .background(Color.gray.opacity(0.05))
-            .cornerRadius(6)
             
             // Use Link Button
             if link.isActive {
