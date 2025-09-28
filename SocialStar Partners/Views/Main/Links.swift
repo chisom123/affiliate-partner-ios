@@ -476,7 +476,7 @@ struct UseLinkInstructionsView: View {
                         AnalyticsProperty.screenName: "link_instructions",
                         "link_id": link.id,
                         "calculated_ratings": Int(calculatorRatings),
-                        "calculated_earnings": calculatorRatings * 0.25
+                        "calculated_earnings": calculatorRatings * 1.0
                     ]
                 )
             }
@@ -486,7 +486,7 @@ struct UseLinkInstructionsView: View {
         HStack {
             Spacer()
             
-            Text("$\(calculatorRatings * 0.25, specifier: "%.2f")")
+            Text("$\(calculatorRatings * 1.0, specifier: "%.2f")")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.green)
             
@@ -627,7 +627,7 @@ struct UseLinkInstructionsView: View {
                                 .font(.system(size: 18, weight: .semibold))
                         }
                         
-                        Text("Earn $0.25 for every rating your story receives")
+                        Text("Earn $1 for every rating your story receives")
                             .font(.system(size: 16))
                             .foregroundColor(.gray)
                             .lineSpacing(2.5)
@@ -654,7 +654,7 @@ struct UseLinkInstructionsView: View {
                                 "link_id": link.id,
                                 "completion_type": "close_button",
                                 "final_calculator_ratings": Int(calculatorRatings),
-                                "final_calculator_earnings": calculatorRatings * 0.25
+                                "final_calculator_earnings": calculatorRatings * 1.0
                             ]
                         )
                         
