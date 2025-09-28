@@ -48,7 +48,7 @@ struct EarningsView: View {
                                 
                                 // Show message when balance is below $5
                                 if !affiliateData.canWithdraw && affiliateData.balance > 0 {
-                                    Text("Minimum withdrawal is $5.00")
+                                    Text("Minimum withdrawal is $10.00")
                                         .font(.system(size: 15, weight: .medium))
                                         .foregroundColor(.orange)
                                         .padding(.vertical)
