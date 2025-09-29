@@ -456,52 +456,86 @@ struct UseLinkInstructionsView: View {
     }
     
     private var calculatorContent: some View {
-        VStack(spacing: 12) {
-            ratingsRow
-            calculatorSlider
-            earningsRow
-        }
-    }
-    
-    private var ratingsRow: some View {
-        HStack {
-            Spacer()
-            
-            Text("\(Int(calculatorRatings)) Ratings")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.secondary)
-            
-            Spacer()
-        }
-    }
-    
-    private var calculatorSlider: some View {
-        Slider(value: $calculatorRatings, in: 10...300, step: 10)
-            .accentColor(.blue)
-            .onChange(of: calculatorRatings) { _ in
-                Analytics.shared.track(
-                    event: "earnings_calculator_used",
-                    properties: [
-                        AnalyticsProperty.screenName: "link_instructions",
-                        "link_id": link.id,
-                        "calculated_ratings": Int(calculatorRatings),
-                        "calculated_earnings": calculatorRatings * 1.0
-                    ]
-                )
+            VStack(spacing: 18) {
+                ratingsRow
+                calculatorSlider
+                earningsRow
             }
-    }
-    
-    private var earningsRow: some View {
-        HStack {
-            Spacer()
-            
-            Text("$\(calculatorRatings * 1.0, specifier: "%.2f")")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.green)
-            
-            Spacer()
         }
-    }
+        
+        private var ratingsRow: some View {
+            HStack {
+                Text("Ratings")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                Text("\(Int(calculatorRatings))")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.primary)
+            }
+        }
+        
+        private var calculatorSlider: some View {
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    // Track background
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 6)
+                    
+                    // Filled track
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.blue)
+                        .frame(width: geometry.size.width * CGFloat((calculatorRatings - 10) / (300 - 10)), height: 6)
+                    
+                    // Thumb
+                    Circle()
+                        .fill(Color.blue)
+                        .frame(width: 22, height: 22)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white, lineWidth: 2.5)
+                        )
+                        .offset(x: geometry.size.width * CGFloat((calculatorRatings - 10) / (300 - 10)) - 12)
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    let percent = max(0, min(1, value.location.x / geometry.size.width))
+                                    let newValue = 10 + (percent * (300 - 10))
+                                    calculatorRatings = round(newValue / 10) * 10
+                                }
+                                .onEnded { _ in
+                                    Analytics.shared.track(
+                                        event: "earnings_calculator_used",
+                                        properties: [
+                                            AnalyticsProperty.screenName: "link_instructions",
+                                            "link_id": link.id,
+                                            "calculated_ratings": Int(calculatorRatings),
+                                            "calculated_earnings": calculatorRatings * 1.0
+                                        ]
+                                    )
+                                }
+                        )
+                }
+            }
+            .frame(height: 24)
+        }
+        
+        private var earningsRow: some View {
+            HStack {
+                Text("Earnings")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
+                
+                Spacer()
+                
+                Text("$\(calculatorRatings * 1.0, specifier: "%.2f")")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.green)
+            }
+        }
     
     var body: some View {
         NavigationView {
