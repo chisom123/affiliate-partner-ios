@@ -212,12 +212,21 @@ struct LinkCard: View {
                     if isEditingTitle {
                         TextField("Link Title", text: $editingTitle)
                             .font(.system(size: 16, weight: .bold))
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .padding(.bottom, 8)
+                            .background(
+                                VStack {
+                                    Spacer()
+                                    Capsule()
+                                        .frame(height: 1)
+                                        .foregroundColor(Color(hex: "C8C8C8"))
+                                }
+                            )
                             .focused($isTitleFieldFocused)
                             .submitLabel(.done)
                             .onSubmit {
                                 saveTitle()
                             }
+                            .padding(.bottom, 8)
                             .onAppear {
                                 editingTitle = link.title
                                 isTitleFieldFocused = true
