@@ -705,6 +705,10 @@ struct ExamplesView: View {
     var body: some View {
         NavigationView {
             VStack {
+                Text("Example Stories")
+                    .font(.system(size: 24, weight: .bold))
+                    .padding(.vertical)
+                
                 ZStack {
                     TabView(selection: $currentIndex) {
                         ForEach(0..<exampleImages.count, id: \.self) { index in
@@ -754,7 +758,7 @@ struct ExamplesView: View {
                 Text("\(currentIndex + 1) of \(exampleImages.count)")
                     .foregroundColor(.gray)
                     .font(.system(size: 15, weight: .semibold))
-                    .padding(.top, 8)
+                    .padding(.vertical, 8)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
