@@ -696,52 +696,56 @@ struct ExamplesView: View {
     var body: some View {
         NavigationView {
             VStack {
-                TabView(selection: $currentIndex) {
-                    ForEach(0..<exampleImages.count, id: \.self) { index in
-                        Image(exampleImages[index])
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .tag(index)
-                            .cornerRadius(8)
+                ZStack {
+                    TabView(selection: $currentIndex) {
+                        ForEach(0..<exampleImages.count, id: \.self) { index in
+                            Image(exampleImages[index])
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .tag(index)
+                                .cornerRadius(8)
+                                .padding(.horizontal, 70) // Add padding to prevent overlap
+                        }
+                    }
+                    .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                    
+                    // Navigation arrows overlaid on center sides
+                    HStack {
+                        Button(action: {
+                            withAnimation {
+                                currentIndex = max(0, currentIndex - 1)
+                            }
+                        }) {
+                            Image(systemName: "chevron.left")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(currentIndex > 0 ? .blue : .gray)
+                                .padding()
+                        }
+                        .disabled(currentIndex == 0)
+                        
+                        Spacer()
+                        
+                        Button(action: {
+                            withAnimation {
+                                currentIndex = min(exampleImages.count - 1, currentIndex + 1)
+                            }
+                        }) {
+                            Image(systemName: "chevron.right")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(currentIndex < exampleImages.count - 1 ? .blue : .gray)
+                                .padding()
+                        }
+                        .disabled(currentIndex == exampleImages.count - 1)
                     }
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 
-                // Navigation arrows (optional - TabView already has swipe gestures)
-                HStack {
-                    Button(action: {
-                        withAnimation {
-                            currentIndex = max(0, currentIndex - 1)
-                        }
-                    }) {
-                        Image(systemName: "chevron.left")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(currentIndex > 0 ? .blue : .gray)
-                    }
-                    .disabled(currentIndex == 0)
-                    
-                    Spacer()
-                    
-                    Text("\(currentIndex + 1) of \(exampleImages.count)")
-                        .foregroundColor(.gray)
-                        .font(.system(size: 15, weight: .semibold))
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        withAnimation {
-                            currentIndex = min(exampleImages.count - 1, currentIndex + 1)
-                        }
-                    }) {
-                        Image(systemName: "chevron.right")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(currentIndex < exampleImages.count - 1 ? .blue : .gray)
-                    }
-                    .disabled(currentIndex == exampleImages.count - 1)
-                }
-                .padding()
+                // Page indicator below the image
+                Text("\(currentIndex + 1) of \(exampleImages.count)")
+                    .foregroundColor(.gray)
+                    .font(.system(size: 15, weight: .semibold))
+                    .padding(.top, 8)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
