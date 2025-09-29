@@ -28,7 +28,7 @@ struct LinksView: View {
                                         .font(.system(size: 20, weight: .semibold))
                                         .foregroundColor(.primary)
                                     
-                                    Text("Create your first link to start earning")
+                                    Text("Create your first story rating link")
                                         .font(.system(size: 16))
                                         .foregroundColor(.secondary)
                                         .multilineTextAlignment(.center)
