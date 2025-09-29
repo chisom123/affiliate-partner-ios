@@ -666,7 +666,7 @@ struct UseLinkInstructionsView: View {
                                 .font(.system(size: 22, weight: .bold))
                                 .foregroundColor(Color.green)
                             
-                            Text("Get Ratings & Start Earning")
+                            Text("Start Earning")
                                 .font(.system(size: 18, weight: .semibold))
                         }
                         
