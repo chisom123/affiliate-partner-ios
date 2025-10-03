@@ -268,13 +268,30 @@ class DashboardViewModel: ObservableObject {
             return
         }
         
+        // NEW: Check if user has credits
+        guard let affiliateData = affiliateData, affiliateData.canCreateLink else {
+            DispatchQueue.main.async {
+                self.errorMessage = "You need credits to create a new link"
+                Analytics.shared.track(
+                    event: "link_creation_blocked",
+                    properties: [
+                        "reason": "no_credits",
+                        "current_credits": self.affiliateData?.linkCredits ?? 0
+                    ]
+                )
+            }
+            completion(nil)
+            return
+        }
+        
         isLoading = true
         errorMessage = ""
         
         Analytics.shared.track(
             event: "link_creation_started",
             properties: [
-                "current_link_count": ratingLinks.count
+                "current_link_count": ratingLinks.count,
+                "available_credits": affiliateData.linkCredits
             ]
         )
         
@@ -294,10 +311,20 @@ class DashboardViewModel: ObservableObject {
             "totalRatings": 0,
             "earnings": 0.0,
             "status": "active"
-            // Note: predictedRating will be added when user saves their prediction
         ]
         
-        db.collection("rating_links").addDocument(data: linkData) { [weak self] error in
+        // Create link and decrement credits in a batch
+        let batch = db.batch()
+        
+        let linkRef = db.collection("rating_links").document()
+        batch.setData(linkData, forDocument: linkRef)
+        
+        let affiliateRef = db.collection("affiliates").document(user.uid)
+        batch.updateData([
+            "linkCredits": FieldValue.increment(Int64(-1))
+        ], forDocument: affiliateRef)
+        
+        batch.commit { [weak self] error in
             DispatchQueue.main.async {
                 self?.isLoading = false
                 
@@ -315,7 +342,7 @@ class DashboardViewModel: ObservableObject {
                     completion(nil)
                 } else {
                     let newLink = RatingLink(
-                        documentID: "",
+                        documentID: linkRef.documentID,
                         data: linkData
                     )
                     
@@ -324,7 +351,8 @@ class DashboardViewModel: ObservableObject {
                         properties: [
                             "link_id": linkId,
                             "link_title": title,
-                            "new_link_count": (self?.ratingLinks.count ?? 0) + 1
+                            "new_link_count": (self?.ratingLinks.count ?? 0) + 1,
+                            "credits_remaining": (self?.affiliateData?.linkCredits ?? 1) - 1
                         ]
                     )
                     
