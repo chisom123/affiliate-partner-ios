@@ -701,16 +701,19 @@ struct UseLinkInstructionsView: View {
                     .padding(.vertical, 10)
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(8)
+                    .opacity((hasSavedPrediction || link.hasPrediction) ? 1.0 : 0.5)
                 
                 Button(action: copyLink) {
-                    Text(showCopiedMessage ? "Link Copied" : "Copy Link")
+                    Text(showCopiedMessage ? "Link Copied" : (hasSavedPrediction || link.hasPrediction ? "Copy Link" : "Make a prediction first"))
                         .font(.system(size: 16, weight: .bold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(showCopiedMessage ? Color.green : Color.blue)
+                        .background(showCopiedMessage ? Color.green : (hasSavedPrediction || link.hasPrediction ? Color.blue : Color.gray))
                         .foregroundColor(.white)
                         .cornerRadius(8)
                 }
+                .disabled(!(hasSavedPrediction || link.hasPrediction))
+                .opacity((hasSavedPrediction || link.hasPrediction) ? 1.0 : 0.6)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
