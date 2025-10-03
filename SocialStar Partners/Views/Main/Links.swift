@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseFirestore
 
 struct LinksView: View {
     @StateObject private var viewModel = DashboardViewModel()
@@ -444,6 +445,10 @@ struct UseLinkInstructionsView: View {
     @State private var hasTrackedView = false
     @State private var calculatorRatings = 50.0
     @State private var showExamples = false
+    @State private var predictedRating: Double = 0
+    @State private var showPredictionSaved = false
+    @State private var isSavingPrediction = false
+    @State private var hasSavedPrediction = false
     
     // Calculator section as a computed property to reduce complexity
     private var calculatorSection: some View {
@@ -456,232 +461,103 @@ struct UseLinkInstructionsView: View {
     }
     
     private var calculatorContent: some View {
-            VStack(spacing: 18) {
-                ratingsRow
-                calculatorSlider
-                earningsRow
+        VStack(spacing: 18) {
+            ratingsRow
+            calculatorSlider
+            earningsRow
+        }
+    }
+    
+    private var ratingsRow: some View {
+        HStack {
+            Text("Ratings")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Text("\(Int(calculatorRatings))")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.primary)
+        }
+    }
+    
+    private var calculatorSlider: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(height: 6)
+                
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.blue)
+                    .frame(width: geometry.size.width * CGFloat((calculatorRatings - 10) / (300 - 10)), height: 6)
+                
+                Circle()
+                    .fill(Color.blue)
+                    .frame(width: 22, height: 22)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white, lineWidth: 2.5)
+                    )
+                    .offset(x: geometry.size.width * CGFloat((calculatorRatings - 10) / (300 - 10)) - 12)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                let percent = max(0, min(1, value.location.x / geometry.size.width))
+                                let newValue = 10 + (percent * (300 - 10))
+                                calculatorRatings = round(newValue / 10) * 10
+                            }
+                            .onEnded { _ in
+                                Analytics.shared.track(
+                                    event: "earnings_calculator_used",
+                                    properties: [
+                                        AnalyticsProperty.screenName: "link_instructions",
+                                        "link_id": link.id,
+                                        "calculated_ratings": Int(calculatorRatings),
+                                        "calculated_earnings": calculatorRatings * 0.50
+                                    ]
+                                )
+                            }
+                    )
             }
         }
-        
-        private var ratingsRow: some View {
-            HStack {
-                Text("Ratings")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
-                
-                Spacer()
-                
-                Text("\(Int(calculatorRatings))")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.primary)
-            }
+        .frame(height: 24)
+    }
+    
+    private var earningsRow: some View {
+        HStack {
+            Text("Earnings")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Text("$\(calculatorRatings * 0.50, specifier: "%.2f")")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.green)
         }
-        
-        private var calculatorSlider: some View {
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    // Track background
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(height: 6)
-                    
-                    // Filled track
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.blue)
-                        .frame(width: geometry.size.width * CGFloat((calculatorRatings - 10) / (300 - 10)), height: 6)
-                    
-                    // Thumb
-                    Circle()
-                        .fill(Color.blue)
-                        .frame(width: 22, height: 22)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.white, lineWidth: 2.5)
-                        )
-                        .offset(x: geometry.size.width * CGFloat((calculatorRatings - 10) / (300 - 10)) - 12)
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { value in
-                                    let percent = max(0, min(1, value.location.x / geometry.size.width))
-                                    let newValue = 10 + (percent * (300 - 10))
-                                    calculatorRatings = round(newValue / 10) * 10
-                                }
-                                .onEnded { _ in
-                                    Analytics.shared.track(
-                                        event: "earnings_calculator_used",
-                                        properties: [
-                                            AnalyticsProperty.screenName: "link_instructions",
-                                            "link_id": link.id,
-                                            "calculated_ratings": Int(calculatorRatings),
-                                            "calculated_earnings": calculatorRatings * 1.0
-                                        ]
-                                    )
-                                }
-                        )
-                }
-            }
-            .frame(height: 24)
-        }
-        
-        private var earningsRow: some View {
-            HStack {
-                Text("Earnings")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
-                
-                Spacer()
-                
-                Text("$\(calculatorRatings * 1.0, specifier: "%.2f")")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.green)
-            }
-        }
+    }
     
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(spacing: 30) {
-                    // Header
                     Text("How to Use Link")
                         .font(.system(size: 24, weight: .bold))
                         .padding(.bottom)
                     
-                    // Step 1: Copy Link
-                    VStack(alignment: .leading, spacing: 15) {
-                        HStack(alignment: .center) {
-                            Text("1")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(Color.green)
-                            
-                            Text("Copy Link")
-                                .font(.system(size: 18, weight: .semibold))
-                        }
-                        
-                        Text("Copy your unique rating link")
-                            .font(.system(size: 16))
-                            .foregroundColor(.gray)
-                        
-                        VStack(spacing: 12) {
-                            Text("https://\(link.url)")
-                                .frame(maxWidth: .infinity)
-                                .padding(5)
-                                .padding(.vertical, 10)
-                                .background(Color.gray.opacity(0.1))
-                                .cornerRadius(8)
-                            
-                            Button(action: {
-                                // Analytics: Track link copy
-                                Analytics.shared.trackTap(
-                                    elementId: "copy_link_button",
-                                    screenName: "link_instructions",
-                                    properties: [
-                                        "link_id": link.id,
-                                        "link_url": link.url
-                                    ]
-                                )
-                                
-                                let impactFeedback = UIImpactFeedbackGenerator(style: .light)
-                                impactFeedback.impactOccurred()
-                                
-                                UIPasteboard.general.string = "https://\(link.url)"
-                                showCopiedMessage = true
-                                
-                                // Analytics: Track successful copy
-                                Analytics.shared.track(
-                                    event: "link_copied_to_clipboard",
-                                    properties: [
-                                        AnalyticsProperty.screenName: "link_instructions",
-                                        "link_id": link.id
-                                    ]
-                                )
-                                
-                                // Reset message after 2 seconds
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                    showCopiedMessage = false
-                                }
-                            }) {
-                                Text(showCopiedMessage ? "Link Copied" : "Copy Link")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(showCopiedMessage ? Color.green : Color.blue)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(8)
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
+                    // NEW: Step 1 - Prediction
+                    predictionStepView
                     
-                    // Step 2: Add to Story
-                    VStack(alignment: .leading, spacing: 15) {
-                        HStack(alignment: .center) {
-                            Text("2")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(Color.green)
-                            
-                            Text("Add Link to Story")
-                                .font(.system(size: 18, weight: .semibold))
-                        }
-                        
-                        Text("Add the link to your Instagram or Snapchat story when sharing a photo or video")
-                            .font(.system(size: 16))
-                            .foregroundColor(.gray)
-                            .lineSpacing(2.5)
-                        
-                        Button(action: {
-                            // Analytics: Track examples button tap
-                            Analytics.shared.trackTap(
-                                elementId: "see_examples_button",
-                                screenName: "link_instructions",
-                                properties: [
-                                    "link_id": link.id
-                                ]
-                            )
-                            
-                            showExamples = true
-                        }) {
-                            HStack(spacing: 4) {
-                                Text("See Examples")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.blue)
-                                
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(.blue)
-                            }
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
+                    // Step 2: Copy Link (formerly Step 1)
+                    copyLinkStepView
                     
-                    // Step 3: Start Earning (with Calculator)
-                    VStack(alignment: .leading, spacing: 15) {
-                        HStack(alignment: .center) {
-                            Text("3")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(Color.green)
-                            
-                            Text("Start Earning")
-                                .font(.system(size: 18, weight: .semibold))
-                        }
-                        
-                        Text("Earn $1 for every rating your story receives")
-                            .font(.system(size: 16))
-                            .foregroundColor(.gray)
-                            .lineSpacing(2.5)
-                        
-                        // Earnings Calculator
-                        calculatorSection
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
+                    // Step 3: Add to Story (formerly Step 2)
+                    addToStoryStepView
+                    
+                    // Step 4: Start Earning (formerly Step 3)
+                    startEarningStepView
                 }
                 .padding()
             }
@@ -689,18 +565,18 @@ struct UseLinkInstructionsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Close") {
-                        // Analytics: Track instructions close
                         Analytics.shared.trackTap(
                             elementId: "close_button",
                             screenName: "link_instructions",
                             properties: [
                                 "link_id": link.id,
                                 "completion_type": "close_button",
+                                "has_prediction": link.hasPrediction,
+                                "predicted_rating": predictedRating,
                                 "final_calculator_ratings": Int(calculatorRatings),
-                                "final_calculator_earnings": calculatorRatings * 1.0
+                                "final_calculator_earnings": calculatorRatings * 0.50
                             ]
                         )
-                        
                         dismiss()
                     }
                     .foregroundColor(.black)
@@ -712,7 +588,6 @@ struct UseLinkInstructionsView: View {
             ExamplesView()
         }
         .onAppear {
-            // Analytics: Track instructions view (only once per session)
             if !hasTrackedView {
                 Analytics.shared.trackScreen(
                     name: "link_instructions",
@@ -720,11 +595,275 @@ struct UseLinkInstructionsView: View {
                         "link_id": link.id,
                         "link_earnings": link.earnings,
                         "link_rating_count": link.ratingCount,
-                        "link_is_active": link.isActive
+                        "link_is_active": link.isActive,
+                        "has_prediction": link.hasPrediction
                     ]
                 )
                 hasTrackedView = true
             }
+            
+            // Load existing prediction if available
+            if let existing = link.predictedRating {
+                predictedRating = existing
+            }
+        }
+    }
+    
+    // NEW: Prediction Step View
+    private var predictionStepView: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .center) {
+                Text("1")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Color.green)
+                
+                Text("Predict Your Rating")
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            
+            Text("What do you think your followers will rate your story on average?")
+                .font(.system(size: 16))
+                .foregroundColor(.gray)
+                .lineSpacing(2.5)
+            
+            VStack(spacing: 20) {
+                // Star prediction selector
+                HStack(spacing: 12) {
+                    ForEach(1...5, id: \.self) { star in
+                        Button(action: {
+                            predictedRating = Double(star)
+                        }) {
+                            VStack(spacing: 4) {
+                                Text("★")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(predictedRating >= Double(star) ? .orange : .gray.opacity(0.4))
+                            }
+                        }
+                        .disabled(link.hasPrediction)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                
+                if link.hasPrediction {
+
+                } else if isSavingPrediction {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .gray))
+                        Spacer()
+                    }
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity)
+                } else if predictedRating > 0 && !hasSavedPrediction {
+                    Button(action: savePrediction) {
+                        HStack {
+                            Spacer()
+                            Text("Save Prediction")
+                                .font(.system(size: 16, weight: .bold))
+                            Spacer()
+                        }
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                    }
+                }
+                
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(8)
+    }
+    
+    private var copyLinkStepView: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .center) {
+                Text("2")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Color.green)
+                
+                Text("Copy Link")
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            
+            Text("Copy your unique rating link")
+                .font(.system(size: 16))
+                .foregroundColor(.gray)
+            
+            VStack(spacing: 12) {
+                Text("https://\(link.url)")
+                    .frame(maxWidth: .infinity)
+                    .padding(5)
+                    .padding(.vertical, 10)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
+                
+                Button(action: copyLink) {
+                    Text(showCopiedMessage ? "Link Copied" : "Copy Link")
+                        .font(.system(size: 16, weight: .bold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(showCopiedMessage ? Color.green : Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(8)
+    }
+    
+    private var addToStoryStepView: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .center) {
+                Text("3")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Color.green)
+                
+                Text("Add Link to Story")
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            
+            Text("Add the link to your Instagram or Snapchat story when sharing a photo or video")
+                .font(.system(size: 16))
+                .foregroundColor(.gray)
+                .lineSpacing(2.5)
+            
+            Button(action: {
+                Analytics.shared.trackTap(
+                    elementId: "see_examples_button",
+                    screenName: "link_instructions",
+                    properties: ["link_id": link.id]
+                )
+                showExamples = true
+            }) {
+                HStack(spacing: 4) {
+                    Text("See Examples")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.blue)
+                    
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.blue)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(8)
+    }
+    
+    private var startEarningStepView: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .center) {
+                Text("4")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Color.green)
+                
+                Text("Start Earning")
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            
+            Text("Earn $0.50 for every rating your story receives")
+                .font(.system(size: 16))
+                .foregroundColor(.gray)
+                .lineSpacing(2.5)
+            
+            calculatorSection
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(8)
+    }
+    
+    private func savePrediction() {
+        guard predictedRating > 0 else { return }
+        
+        isSavingPrediction = true
+        
+        let db = Firestore.firestore()
+        
+        db.collection("rating_links")
+            .whereField("linkId", isEqualTo: link.linkId)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    print("Error finding link:", error)
+                    isSavingPrediction = false
+                    return
+                }
+                
+                guard let document = snapshot?.documents.first else {
+                    print("Link document not found")
+                    isSavingPrediction = false
+                    return
+                }
+                
+                document.reference.updateData([
+                    "predictedRating": predictedRating
+                ]) { error in
+                    isSavingPrediction = false
+                    
+                    if let error = error {
+                        print("Error saving prediction:", error)
+                        Analytics.shared.trackError(
+                            message: "Failed to save prediction",
+                            properties: ["link_id": link.id, "error": error.localizedDescription]
+                        )
+                    } else {
+                        hasSavedPrediction = true
+                        showPredictionSaved = true
+                        
+                        Analytics.shared.track(
+                            event: "prediction_saved",
+                            properties: [
+                                AnalyticsProperty.screenName: "link_instructions",
+                                "link_id": link.id,
+                                "predicted_rating": predictedRating
+                            ]
+                        )
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            showPredictionSaved = false
+                        }
+                    }
+                }
+            }
+    }
+    
+    private func copyLink() {
+        Analytics.shared.trackTap(
+            elementId: "copy_link_button",
+            screenName: "link_instructions",
+            properties: [
+                "link_id": link.id,
+                "link_url": link.url
+            ]
+        )
+        
+        let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+        impactFeedback.impactOccurred()
+        
+        UIPasteboard.general.string = "https://\(link.url)"
+        showCopiedMessage = true
+        
+        Analytics.shared.track(
+            event: "link_copied_to_clipboard",
+            properties: [
+                AnalyticsProperty.screenName: "link_instructions",
+                "link_id": link.id
+            ]
+        )
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            showCopiedMessage = false
         }
     }
 }

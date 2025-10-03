@@ -31,12 +31,10 @@ class DashboardViewModel: ObservableObject {
     func loadData() {
         guard let user = Auth.auth().currentUser else { return }
         
-        // Reset loading state for fresh data load
         isInitialDataLoad = true
         hasReceivedInitialLinkData = false
         hasReceivedInitialAffiliateData = false
         
-        // Analytics: Track data loading
         Analytics.shared.track(
             event: "dashboard_data_load_started",
             properties: [
@@ -57,17 +55,14 @@ class DashboardViewModel: ObservableObject {
     private func setupAffiliateListener(userId: String) {
         let db = Firestore.firestore()
         
-        // Real-time listener for affiliate data (balance updates)
         affiliateListener = db.collection("affiliates").document(userId)
             .addSnapshotListener { [weak self] document, error in
                 DispatchQueue.main.async {
                     if let error = error {
-                        // Analytics: Track affiliate data error
                         Analytics.shared.trackError(
                             message: "Affiliate data listener error: \(error.localizedDescription)"
                         )
                         
-                        // Mark as received even on error to prevent infinite loading
                         self?.hasReceivedInitialAffiliateData = true
                         self?.checkInitialLoadComplete()
                         return
@@ -79,7 +74,6 @@ class DashboardViewModel: ObservableObject {
                        let affiliateData = AffiliateData(data: data) {
                         self?.affiliateData = affiliateData
                         
-                        // Analytics: Track affiliate data loaded
                         Analytics.shared.track(
                             event: "affiliate_data_loaded",
                             properties: [
@@ -90,7 +84,6 @@ class DashboardViewModel: ObservableObject {
                         )
                     }
                     
-                    // Mark initial data as received
                     self?.hasReceivedInitialAffiliateData = true
                     self?.checkInitialLoadComplete()
                 }
@@ -105,12 +98,10 @@ class DashboardViewModel: ObservableObject {
             .addSnapshotListener { [weak self] snapshot, error in
                 DispatchQueue.main.async {
                     if let error = error {
-                        // Analytics: Track rating links error
                         Analytics.shared.trackError(
                             message: "Rating links listener error: \(error.localizedDescription)"
                         )
                         
-                        // Mark as received even on error to prevent infinite loading
                         self?.hasReceivedInitialLinkData = true
                         self?.checkInitialLoadComplete()
                         return
@@ -126,21 +117,21 @@ class DashboardViewModel: ObservableObject {
                         RatingLink(documentID: doc.documentID, data: doc.data())
                     }
                     
-                    // Calculate average ratings for each link
                     self?.calculateAverageRatings(for: &links)
                     
                     self?.ratingLinks = links
                     
-                    // Analytics: Track rating links loaded
+                    // NEW: Track prediction statistics
+                    let linksWithPredictions = links.filter { $0.hasPrediction }
                     Analytics.shared.track(
                         event: "rating_links_loaded",
                         properties: [
                             "link_count": links.count,
-                            "active_links": links.filter { $0.isActive }.count
+                            "active_links": links.filter { $0.isActive }.count,
+                            "links_with_predictions": linksWithPredictions.count
                         ]
                     )
                     
-                    // Mark initial data as received
                     self?.hasReceivedInitialLinkData = true
                     self?.checkInitialLoadComplete()
                 }
@@ -158,7 +149,6 @@ class DashboardViewModel: ObservableObject {
                 .getDocuments { snapshot, error in
                     guard let documents = snapshot?.documents, !documents.isEmpty else {
                         DispatchQueue.main.async {
-                            // Update link with no ratings
                             if let index = self.ratingLinks.firstIndex(where: { $0.id == link.id }) {
                                 self.ratingLinks[index].averageRating = 0.0
                                 self.ratingLinks[index].ratingCount = 0
@@ -175,10 +165,24 @@ class DashboardViewModel: ObservableObject {
                     let average = total / Double(ratings.count)
                     
                     DispatchQueue.main.async {
-                        // Update the specific link in the array
                         if let index = self.ratingLinks.firstIndex(where: { $0.id == link.id }) {
                             self.ratingLinks[index].averageRating = average
                             self.ratingLinks[index].ratingCount = ratings.count
+                            
+                            // NEW: Track prediction accuracy if prediction exists
+                            if let prediction = link.predictedRating, ratings.count > 0 {
+                                let accuracy = self.ratingLinks[index].predictionAccuracy ?? 0
+                                Analytics.shared.track(
+                                    event: "prediction_accuracy_calculated",
+                                    properties: [
+                                        "link_id": link.id,
+                                        "predicted_rating": prediction,
+                                        "actual_rating": average,
+                                        "accuracy_percentage": accuracy,
+                                        "rating_count": ratings.count
+                                    ]
+                                )
+                            }
                         }
                     }
                 }
@@ -188,7 +192,6 @@ class DashboardViewModel: ObservableObject {
     func updateLinkTitle(link: RatingLink, newTitle: String) {
         guard let user = Auth.auth().currentUser else { return }
         
-        // Analytics: Track link title update attempt
         Analytics.shared.track(
             event: "link_title_update_started",
             properties: [
@@ -200,7 +203,6 @@ class DashboardViewModel: ObservableObject {
         
         let db = Firestore.firestore()
         
-        // Find the document by querying for the linkId
         db.collection("rating_links")
             .whereField("linkId", isEqualTo: link.linkId)
             .whereField("affiliateId", isEqualTo: user.uid)
@@ -209,7 +211,6 @@ class DashboardViewModel: ObservableObject {
                     DispatchQueue.main.async {
                         self?.errorMessage = "Error updating title: \(error.localizedDescription)"
                         
-                        // Analytics: Track title update error
                         Analytics.shared.trackError(
                             message: "Link title update failed: \(error.localizedDescription)",
                             properties: [
@@ -224,7 +225,6 @@ class DashboardViewModel: ObservableObject {
                     DispatchQueue.main.async {
                         self?.errorMessage = "Link document not found"
                         
-                        // Analytics: Track document not found error
                         Analytics.shared.trackError(
                             message: "Link document not found for title update",
                             properties: [
@@ -235,7 +235,6 @@ class DashboardViewModel: ObservableObject {
                     return
                 }
                 
-                // Update the title in Firestore
                 document.reference.updateData([
                     "title": newTitle
                 ]) { error in
@@ -243,7 +242,6 @@ class DashboardViewModel: ObservableObject {
                         DispatchQueue.main.async {
                             self?.errorMessage = "Error updating title: \(error.localizedDescription)"
                             
-                            // Analytics: Track Firestore update error
                             Analytics.shared.trackError(
                                 message: "Firestore title update failed: \(error.localizedDescription)",
                                 properties: [
@@ -252,7 +250,6 @@ class DashboardViewModel: ObservableObject {
                             )
                         }
                     } else {
-                        // Analytics: Track successful title update
                         Analytics.shared.track(
                             event: "link_title_updated_successfully",
                             properties: [
@@ -261,7 +258,6 @@ class DashboardViewModel: ObservableObject {
                             ]
                         )
                     }
-                    // The real-time listener will automatically update the UI
                 }
             }
     }
@@ -275,7 +271,6 @@ class DashboardViewModel: ObservableObject {
         isLoading = true
         errorMessage = ""
         
-        // Analytics: Track link creation attempt
         Analytics.shared.track(
             event: "link_creation_started",
             properties: [
@@ -295,10 +290,11 @@ class DashboardViewModel: ObservableObject {
             "description": "",
             "url": "rate.socialstarapp.com/rate/\(user.uid)/\(linkId)",
             "createdAt": Timestamp(),
-            "expiresAt": Timestamp(date: Date().addingTimeInterval(48 * 60 * 60)), // 48 hours
+            "expiresAt": Timestamp(date: Date().addingTimeInterval(48 * 60 * 60)),
             "totalRatings": 0,
             "earnings": 0.0,
             "status": "active"
+            // Note: predictedRating will be added when user saves their prediction
         ]
         
         db.collection("rating_links").addDocument(data: linkData) { [weak self] error in
@@ -308,7 +304,6 @@ class DashboardViewModel: ObservableObject {
                 if let error = error {
                     self?.errorMessage = "Error creating link: \(error.localizedDescription)"
                     
-                    // Analytics: Track link creation failure
                     Analytics.shared.track(
                         event: "link_creation_failed",
                         properties: [
@@ -324,7 +319,6 @@ class DashboardViewModel: ObservableObject {
                         data: linkData
                     )
                     
-                    // Analytics: Track successful link creation
                     Analytics.shared.track(
                         event: "link_created_successfully",
                         properties: [
@@ -344,7 +338,6 @@ class DashboardViewModel: ObservableObject {
         do {
             try Auth.auth().signOut()
             
-            // Analytics: Track sign out from dashboard
             Analytics.shared.track(
                 event: "user_signed_out_from_dashboard"
             )
@@ -353,7 +346,6 @@ class DashboardViewModel: ObservableObject {
         } catch {
             errorMessage = "Error signing out: \(error.localizedDescription)"
             
-            // Analytics: Track sign out error
             Analytics.shared.trackError(
                 message: "Sign out failed: \(error.localizedDescription)"
             )

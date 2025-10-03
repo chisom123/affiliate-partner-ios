@@ -13,6 +13,7 @@ struct RatingLink: Identifiable {
     let status: String
     var averageRating: Double
     var ratingCount: Int
+    var predictedRating: Double? // NEW: Partner's prediction
     
     var isActive: Bool {
         expiresAt > Date() && status == "active"
@@ -20,6 +21,19 @@ struct RatingLink: Identifiable {
     
     var hasRatings: Bool {
         ratingCount > 0
+    }
+    
+    // NEW: Check if partner made a prediction
+    var hasPrediction: Bool {
+        predictedRating != nil
+    }
+    
+    // NEW: Calculate prediction accuracy (0-100%)
+    var predictionAccuracy: Double? {
+        guard let predicted = predictedRating, hasRatings else { return nil }
+        let difference = abs(predicted - averageRating)
+        let maxDifference = 4.0 // Maximum possible difference (5 - 1)
+        return max(0, (1 - difference / maxDifference) * 100)
     }
 }
 
@@ -35,8 +49,9 @@ extension RatingLink {
         self.createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
         self.expiresAt = (data["expiresAt"] as? Timestamp)?.dateValue() ?? Date()
         self.status = data["status"] as? String ?? "active"
-        self.averageRating = 0.0 // Will be calculated separately
-        self.ratingCount = 0 // Will be calculated separately
+        self.averageRating = 0.0
+        self.ratingCount = 0
+        self.predictedRating = data["predictedRating"] as? Double // NEW
     }
 }
 
