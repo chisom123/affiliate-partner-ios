@@ -639,7 +639,7 @@ struct UseLinkInstructionsView: View {
                                     .foregroundColor(predictedRating >= Double(star) ? .orange : .gray.opacity(0.4))
                             }
                         }
-                        .disabled(link.hasPrediction)
+                        .disabled(hasSavedPrediction || link.hasPrediction)
                     }
                 }
                 .frame(maxWidth: .infinity)
