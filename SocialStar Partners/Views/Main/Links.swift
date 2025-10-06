@@ -766,7 +766,7 @@ struct UseLinkInstructionsView: View {
                     .font(.system(size: 18, weight: .semibold))
             }
             
-            Text("Add the link to your Instagram or Snapchat story when sharing a photo or video")
+            Text("Add the link to your Instagram story when sharing a photo or video")
                 .font(.system(size: 16))
                 .foregroundColor(.gray)
                 .lineSpacing(2.5)
