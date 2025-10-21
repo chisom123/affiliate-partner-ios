@@ -323,7 +323,7 @@ struct LinkCard: View {
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.gray)
                     Text("Ratings")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.gray)
                 }
                 .frame(maxWidth: .infinity, minHeight: 60)
@@ -345,6 +345,10 @@ struct LinkCard: View {
                             }
                         }
                     }
+                    
+                    Text("Average")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.gray)
                 }
                 .frame(maxWidth: .infinity, minHeight: 60)  // Fixed height for consistency
                 .background(Color.orange.opacity(0.1))
