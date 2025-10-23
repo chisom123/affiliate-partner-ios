@@ -300,6 +300,9 @@ class DashboardViewModel: ObservableObject {
         let linkNumber = ratingLinks.count + 1
         let title = "Rating Link #\(linkNumber)"
         
+        // NEW: Generate random parlay amounts
+        let parlayAmounts = generateRandomParlayAmounts()
+        
         let linkData: [String: Any] = [
             "affiliateId": user.uid,
             "linkId": linkId,
@@ -310,7 +313,11 @@ class DashboardViewModel: ObservableObject {
             "expiresAt": Timestamp(date: Date().addingTimeInterval(48 * 60 * 60)),
             "totalRatings": 0,
             "earnings": 0.0,
-            "status": "active"
+            "status": "active",
+            // NEW: Store parlay amounts
+            "parlayEntry": parlayAmounts.entry,
+            "parlayWin": parlayAmounts.win,
+            "parlayProfit": parlayAmounts.profit
         ]
         
         // Create link and decrement credits in a batch
@@ -352,7 +359,11 @@ class DashboardViewModel: ObservableObject {
                             "link_id": linkId,
                             "link_title": title,
                             "new_link_count": (self?.ratingLinks.count ?? 0) + 1,
-                            "credits_remaining": (self?.affiliateData?.linkCredits ?? 1) - 1
+                            "credits_remaining": (self?.affiliateData?.linkCredits ?? 1) - 1,
+                            // NEW: Track parlay amounts
+                            "parlay_entry": parlayAmounts.entry,
+                            "parlay_win": parlayAmounts.win,
+                            "parlay_profit": parlayAmounts.profit
                         ]
                     )
                     
@@ -360,6 +371,25 @@ class DashboardViewModel: ObservableObject {
                 }
             }
         }
+    }
+    
+    // NEW: Function to generate random parlay amounts
+    private func generateRandomParlayAmounts() -> (entry: Int, win: Int, profit: Int) {
+        // Generate entry amount between 50 and 200, ending in 0 or 5
+        let entryBase = Int.random(in: 50...200)
+        let entry = (entryBase / 5) * 5 // Round to nearest 5
+        
+        // Generate multiplier between 2x and 4x
+        let multiplier = Double.random(in: 2.0...4.0)
+        
+        // Calculate win amount and round to nearest 5
+        let winBase = Double(entry) * multiplier
+        let win = Int((winBase / 5).rounded()) * 5
+        
+        // Calculate profit
+        let profit = win - entry
+        
+        return (entry, win, profit)
     }
     
     func signOut() {
