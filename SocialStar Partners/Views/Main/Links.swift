@@ -279,17 +279,17 @@ struct LinkCard: View {
             }
             
             HStack(spacing: 16) {
-                // Left Section
+                // Earnings Section
                 VStack(alignment: .center, spacing: 4) {
-                    Text("\(link.ratingCount)")
+                    Text("$\(link.earnings, specifier: "%.2f")")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.gray)
-                    Text("Ratings")
-                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.green)
+                    Text("Earned")
+                        .font(.system(size: 12))
                         .foregroundColor(.gray)
                 }
-                .frame(maxWidth: .infinity, minHeight: 60)
-                .background(Color.orange.opacity(0.1))
+                .frame(maxWidth: .infinity, minHeight: 60)  // Fixed height for consistency
+                .background(Color.green.opacity(0.1))
                 .cornerRadius(6)
                 
                 // Rating Section
@@ -308,8 +308,8 @@ struct LinkCard: View {
                         }
                     }
                     
-                    Text("Average")
-                        .font(.system(size: 12, weight: .semibold))
+                    Text("\(link.ratingCount) rating\(link.ratingCount != 1 ? "s" : "")")
+                        .font(.system(size: 12))
                         .foregroundColor(.gray)
                 }
                 .frame(maxWidth: .infinity, minHeight: 60)  // Fixed height for consistency
@@ -438,7 +438,7 @@ struct UseLinkInstructionsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showCopiedMessage = false
     @State private var hasTrackedView = false
-    @State private var calculatorRatings = 50.0
+    @State private var calculatorRatings = 30.0
     @State private var showExamples = false
     @State private var predictedRating: Double = 0
     @State private var showPredictionSaved = false
@@ -458,6 +458,8 @@ struct UseLinkInstructionsView: View {
     private var calculatorContent: some View {
         VStack(spacing: 18) {
             ratingsRow
+            calculatorSlider
+            earningsRow
         }
     }
     
@@ -472,6 +474,63 @@ struct UseLinkInstructionsView: View {
             Text("\(Int(calculatorRatings))")
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.primary)
+        }
+    }
+    
+    private var calculatorSlider: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(height: 6)
+                
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.blue)
+                    .frame(width: geometry.size.width * CGFloat((calculatorRatings - 10) / (100 - 10)), height: 6)
+                
+                Circle()
+                    .fill(Color.blue)
+                    .frame(width: 22, height: 22)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white, lineWidth: 2.5)
+                    )
+                    .offset(x: geometry.size.width * CGFloat((calculatorRatings - 10) / (100 - 10)) - 12)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                let percent = max(0, min(1, value.location.x / geometry.size.width))
+                                let newValue = 10 + (percent * (100 - 10))
+                                calculatorRatings = round(newValue / 10) * 10
+                            }
+                            .onEnded { _ in
+                                Analytics.shared.track(
+                                    event: "earnings_calculator_used",
+                                    properties: [
+                                        AnalyticsProperty.screenName: "link_instructions",
+                                        "link_id": link.id,
+                                        "calculated_ratings": Int(calculatorRatings),
+                                        "calculated_earnings": calculatorRatings * 1.0
+                                    ]
+                                )
+                            }
+                    )
+            }
+        }
+        .frame(height: 24)
+    }
+    
+    private var earningsRow: some View {
+        HStack {
+            Text("Earnings")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
+            
+            Spacer()
+            
+            Text("$\(calculatorRatings * 1.0, specifier: "%.2f")")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.green)
         }
     }
     
@@ -492,6 +551,8 @@ struct UseLinkInstructionsView: View {
                     // Step 3: Add to Story (formerly Step 2)
                     addToStoryStepView
                     
+                    // Step 4: Start Earning (formerly Step 3)
+                    startEarningStepView
                 }
                 .padding()
             }
@@ -507,7 +568,8 @@ struct UseLinkInstructionsView: View {
                                 "completion_type": "close_button",
                                 "has_prediction": link.hasPrediction,
                                 "predicted_rating": predictedRating,
-                                "final_calculator_ratings": Int(calculatorRatings)
+                                "final_calculator_ratings": Int(calculatorRatings),
+                                "final_calculator_earnings": calculatorRatings * 0.50
                             ]
                         )
                         dismiss()
@@ -689,6 +751,30 @@ struct UseLinkInstructionsView: View {
                         .foregroundColor(.blue)
                 }
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(8)
+    }
+    
+    private var startEarningStepView: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .center) {
+                Text("4")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Color.green)
+                
+                Text("Start Earning")
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            
+            Text("Earn $1 for every rating your story receives")
+                .font(.system(size: 16))
+                .foregroundColor(.gray)
+                .lineSpacing(2.5)
+            
+            calculatorSection
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
