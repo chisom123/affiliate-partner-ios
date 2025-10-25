@@ -202,8 +202,7 @@ struct ProfilePictureView: View {
             "paymentInfo": NSNull(),
             "payoutHistory": [],
             "balance": 0.0,
-            "totalWithdrawn": 0.0,
-            "linkCredits": 0
+            "totalWithdrawn": 0.0
         ]
         
         db.collection("affiliates").document(user.uid).setData(affiliateData) { error in

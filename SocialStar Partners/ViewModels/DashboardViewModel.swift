@@ -268,30 +268,13 @@ class DashboardViewModel: ObservableObject {
             return
         }
         
-        // NEW: Check if user has credits
-        guard let affiliateData = affiliateData, affiliateData.canCreateLink else {
-            DispatchQueue.main.async {
-                self.errorMessage = "You need credits to create a new link"
-                Analytics.shared.track(
-                    event: "link_creation_blocked",
-                    properties: [
-                        "reason": "no_credits",
-                        "current_credits": self.affiliateData?.linkCredits ?? 0
-                    ]
-                )
-            }
-            completion(nil)
-            return
-        }
-        
         isLoading = true
         errorMessage = ""
         
         Analytics.shared.track(
             event: "link_creation_started",
             properties: [
-                "current_link_count": ratingLinks.count,
-                "available_credits": affiliateData.linkCredits
+                "current_link_count": ratingLinks.count
             ]
         )
         
@@ -320,16 +303,11 @@ class DashboardViewModel: ObservableObject {
             "parlayProfit": parlayAmounts.profit
         ]
         
-        // Create link and decrement credits in a batch
+        // Create link in a batch
         let batch = db.batch()
         
         let linkRef = db.collection("rating_links").document()
         batch.setData(linkData, forDocument: linkRef)
-        
-        let affiliateRef = db.collection("affiliates").document(user.uid)
-        batch.updateData([
-            "linkCredits": FieldValue.increment(Int64(-1))
-        ], forDocument: affiliateRef)
         
         batch.commit { [weak self] error in
             DispatchQueue.main.async {
@@ -359,7 +337,6 @@ class DashboardViewModel: ObservableObject {
                             "link_id": linkId,
                             "link_title": title,
                             "new_link_count": (self?.ratingLinks.count ?? 0) + 1,
-                            "credits_remaining": (self?.affiliateData?.linkCredits ?? 1) - 1,
                             // NEW: Track parlay amounts
                             "parlay_entry": parlayAmounts.entry,
                             "parlay_win": parlayAmounts.win,

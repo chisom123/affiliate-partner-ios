@@ -75,7 +75,6 @@ struct AffiliateData {
     let status: String
     let balance: Double
     let totalWithdrawn: Double
-    let linkCredits: Int // NEW: Available credits for creating links
     let profilePictureUrl: String? // NEW: Profile picture URL
 }
 
@@ -97,7 +96,6 @@ extension AffiliateData {
         self.status = data["status"] as? String ?? "active"
         self.balance = data["balance"] as? Double ?? 0.0
         self.totalWithdrawn = data["totalWithdrawn"] as? Double ?? 0.0
-        self.linkCredits = data["linkCredits"] as? Int ?? 0 // NEW
         self.profilePictureUrl = data["profilePictureUrl"] as? String // NEW
     }
     
@@ -107,10 +105,5 @@ extension AffiliateData {
     
     var lifetimeEarnings: Double {
         balance + totalWithdrawn
-    }
-    
-    // NEW: Check if user can create a link
-    var canCreateLink: Bool {
-        linkCredits > 0
     }
 }

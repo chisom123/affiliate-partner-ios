@@ -4,7 +4,6 @@ import FirebaseFirestore
 struct LinksView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @State private var selectedLinkForInstructions: RatingLink?
-    @State private var showNoCreditAlert = false
     
     var body: some View {
         NavigationView {
@@ -37,34 +36,28 @@ struct LinksView: View {
                                 }
                                 
                                 Button(action: {
-                                    // Check credits before creating
-                                    if viewModel.affiliateData?.canCreateLink == true {
-                                        Analytics.shared.trackTap(
-                                            elementId: "create_first_link_button",
-                                            screenName: "links",
-                                            properties: [
-                                                "user_state": "empty_state",
-                                                "total_links": viewModel.ratingLinks.count,
-                                                "available_credits": viewModel.affiliateData?.linkCredits ?? 0
-                                            ]
-                                        )
+                                    Analytics.shared.trackTap(
+                                        elementId: "create_first_link_button",
+                                        screenName: "links",
+                                        properties: [
+                                            "user_state": "empty_state",
+                                            "total_links": viewModel.ratingLinks.count
+                                        ]
+                                    )
+                                    
+                                    viewModel.createNewLink { newLink in
+                                        selectedLinkForInstructions = newLink
                                         
-                                        viewModel.createNewLink { newLink in
-                                            selectedLinkForInstructions = newLink
-                                            
-                                            if let link = newLink {
-                                                Analytics.shared.track(
-                                                    event: "first_link_created",
-                                                    properties: [
-                                                        AnalyticsProperty.screenName: "links",
-                                                        "link_id": link.id,
-                                                        "link_title": link.title
-                                                    ]
-                                                )
-                                            }
+                                        if let link = newLink {
+                                            Analytics.shared.track(
+                                                event: "first_link_created",
+                                                properties: [
+                                                    AnalyticsProperty.screenName: "links",
+                                                    "link_id": link.id,
+                                                    "link_title": link.title
+                                                ]
+                                            )
                                         }
-                                    } else {
-                                        showNoCreditAlert = true
                                     }
                                 }) {
                                     HStack(spacing: 8) {
@@ -76,30 +69,14 @@ struct LinksView: View {
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 24)
                                     .padding(.vertical, 12)
-                                    .background(
-                                        viewModel.affiliateData?.canCreateLink == true
-                                            ? Color.blue
-                                            : Color.gray
-                                    )
+                                    .background(Color.blue)
                                     .cornerRadius(200)
                                 }
-                                .disabled(viewModel.isLoading || !(viewModel.affiliateData?.canCreateLink ?? false))
+                                .disabled(viewModel.isLoading)
                                 .opacity(
-                                    viewModel.isLoading || !(viewModel.affiliateData?.canCreateLink ?? false)
-                                        ? 0.6
-                                        : 1.0
+                                    viewModel.isLoading ? 0.6 : 1.0
                                 )
                                 .padding(.top)
-                                
-                                // Credits display
-                                if let credits = viewModel.affiliateData?.linkCredits {
-                                    if credits < 1 {
-                                        Text("Contact support to get a link")
-                                            .font(.system(size: 15, weight: .semibold))
-                                            .foregroundColor(credits > 0 ? .green : .red)
-                                            .padding(.top, 20)
-                                    }
-                                }
                             }
                             .padding(.vertical, 50)
                             .frame(maxWidth: .infinity)
@@ -153,46 +130,37 @@ struct LinksView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
-                        if viewModel.affiliateData?.canCreateLink == true {
-                            Analytics.shared.trackTap(
-                                elementId: "add_link_toolbar_button",
-                                screenName: "links",
-                                properties: [
-                                    "total_links": viewModel.ratingLinks.count,
-                                    "user_state": viewModel.ratingLinks.isEmpty ? "empty" : "has_links",
-                                    "available_credits": viewModel.affiliateData?.linkCredits ?? 0
-                                ]
-                            )
+                        Analytics.shared.trackTap(
+                            elementId: "add_link_toolbar_button",
+                            screenName: "links",
+                            properties: [
+                                "total_links": viewModel.ratingLinks.count,
+                                "user_state": viewModel.ratingLinks.isEmpty ? "empty" : "has_links"
+                            ]
+                        )
+                        
+                        viewModel.createNewLink { newLink in
+                            selectedLinkForInstructions = newLink
                             
-                            viewModel.createNewLink { newLink in
-                                selectedLinkForInstructions = newLink
-                                
-                                if let link = newLink {
-                                    Analytics.shared.track(
-                                        event: "link_created",
-                                        properties: [
-                                            AnalyticsProperty.screenName: "links",
-                                            "link_id": link.id,
-                                            "link_title": link.title,
-                                            "total_links_after": viewModel.ratingLinks.count + 1,
-                                            "creation_source": "toolbar"
-                                        ]
-                                    )
-                                }
+                            if let link = newLink {
+                                Analytics.shared.track(
+                                    event: "link_created",
+                                    properties: [
+                                        AnalyticsProperty.screenName: "links",
+                                        "link_id": link.id,
+                                        "link_title": link.title,
+                                        "total_links_after": viewModel.ratingLinks.count + 1,
+                                        "creation_source": "toolbar"
+                                    ]
+                                )
                             }
-                        } else {
-                            showNoCreditAlert = true
                         }
                     }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
-                            .foregroundColor(
-                                viewModel.isLoading || !(viewModel.affiliateData?.canCreateLink ?? false)
-                                    ? .gray
-                                    : Color.blue
-                            )
+                            .foregroundColor(Color.blue)
                     }
-                    .disabled(viewModel.isLoading || !(viewModel.affiliateData?.canCreateLink ?? false))
+                    .disabled(viewModel.isLoading)
                 }
             }
         }
@@ -210,8 +178,7 @@ struct LinksView: View {
                     "inactive_links": viewModel.ratingLinks.count - activeLinks.count,
                     "total_earnings": totalEarnings,
                     "total_ratings": totalRatings,
-                    "average_earnings_per_link": viewModel.ratingLinks.isEmpty ? 0 : totalEarnings / Double(viewModel.ratingLinks.count),
-                    "available_credits": viewModel.affiliateData?.linkCredits ?? 0
+                    "average_earnings_per_link": viewModel.ratingLinks.isEmpty ? 0 : totalEarnings / Double(viewModel.ratingLinks.count)
                 ]
             )
             
@@ -219,11 +186,6 @@ struct LinksView: View {
         }
         .sheet(item: $selectedLinkForInstructions) { link in
             UseLinkInstructionsView(link: link)
-        }
-        .alert("No Credits Available", isPresented: $showNoCreditAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("You need credits to create a new rating link. Contact support to add credits to your account.")
         }
     }
 }
