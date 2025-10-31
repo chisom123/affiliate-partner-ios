@@ -440,10 +440,6 @@ struct UseLinkInstructionsView: View {
     @State private var hasTrackedView = false
     @State private var calculatorRatings = 30.0
     @State private var showExamples = false
-    @State private var predictedRating: Double = 0
-    @State private var showPredictionSaved = false
-    @State private var isSavingPrediction = false
-    @State private var hasSavedPrediction = false
     
     // Calculator section as a computed property to reduce complexity
     private var calculatorSection: some View {
@@ -510,7 +506,7 @@ struct UseLinkInstructionsView: View {
                                         AnalyticsProperty.screenName: "link_instructions",
                                         "link_id": link.id,
                                         "calculated_ratings": Int(calculatorRatings),
-                                        "calculated_earnings": calculatorRatings * 1.0
+                                        "calculated_earnings": calculatorRatings * 0.50
                                     ]
                                 )
                             }
@@ -528,7 +524,7 @@ struct UseLinkInstructionsView: View {
             
             Spacer()
             
-            Text("$\(calculatorRatings * 1.0, specifier: "%.2f")")
+            Text("$\(calculatorRatings * 0.50, specifier: "%.2f")")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.green)
         }
@@ -542,16 +538,13 @@ struct UseLinkInstructionsView: View {
                         .font(.system(size: 24, weight: .bold))
                         .padding(.bottom)
                     
-                    // NEW: Step 1 - Prediction
-                    predictionStepView
-                    
-                    // Step 2: Copy Link (formerly Step 1)
+                    // Step 1: Copy Link
                     copyLinkStepView
                     
-                    // Step 3: Add to Story (formerly Step 2)
+                    // Step 2: Add to Story
                     addToStoryStepView
                     
-                    // Step 4: Start Earning (formerly Step 3)
+                    // Step 3: Start Earning
                     startEarningStepView
                 }
                 .padding()
@@ -566,8 +559,6 @@ struct UseLinkInstructionsView: View {
                             properties: [
                                 "link_id": link.id,
                                 "completion_type": "close_button",
-                                "has_prediction": link.hasPrediction,
-                                "predicted_rating": predictedRating,
                                 "final_calculator_ratings": Int(calculatorRatings),
                                 "final_calculator_earnings": calculatorRatings * 0.50
                             ]
@@ -590,94 +581,18 @@ struct UseLinkInstructionsView: View {
                         "link_id": link.id,
                         "link_earnings": link.earnings,
                         "link_rating_count": link.ratingCount,
-                        "link_is_active": link.isActive,
-                        "has_prediction": link.hasPrediction
+                        "link_is_active": link.isActive
                     ]
                 )
                 hasTrackedView = true
             }
-            
-            // Load existing prediction if available
-            if let existing = link.predictedRating {
-                predictedRating = existing
-            }
         }
-    }
-    
-    // NEW: Prediction Step View
-    private var predictionStepView: some View {
-        VStack(alignment: .leading, spacing: 15) {
-            HStack(alignment: .center) {
-                Text("1")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(Color.green)
-                
-                Text("Predict Your Rating")
-                    .font(.system(size: 18, weight: .semibold))
-            }
-            
-            Text("What do you think your followers will rate your story on average?")
-                .font(.system(size: 16))
-                .foregroundColor(.gray)
-                .lineSpacing(2.5)
-            
-            VStack(spacing: 20) {
-                // Star prediction selector
-                HStack(spacing: 12) {
-                    ForEach(1...5, id: \.self) { star in
-                        Button(action: {
-                            predictedRating = Double(star)
-                        }) {
-                            VStack(spacing: 4) {
-                                Text("★")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(predictedRating >= Double(star) ? .orange : .gray.opacity(0.4))
-                            }
-                        }
-                        .disabled(hasSavedPrediction || link.hasPrediction)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                
-                if link.hasPrediction {
-
-                } else if isSavingPrediction {
-                    HStack {
-                        Spacer()
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .gray))
-                        Spacer()
-                    }
-                    .padding(.vertical, 12)
-                    .frame(maxWidth: .infinity)
-                } else if predictedRating > 0 && !hasSavedPrediction {
-                    Button(action: savePrediction) {
-                        HStack {
-                            Spacer()
-                            Text("Save Prediction")
-                                .font(.system(size: 16, weight: .bold))
-                            Spacer()
-                        }
-                        .padding(.vertical, 12)
-                        .frame(maxWidth: .infinity)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                    }
-                }
-                
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(8)
     }
     
     private var copyLinkStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
-                Text("2")
+                Text("1")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color.green)
                 
@@ -696,19 +611,16 @@ struct UseLinkInstructionsView: View {
                     .padding(.vertical, 10)
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(8)
-                    .opacity((hasSavedPrediction || link.hasPrediction) ? 1.0 : 0.5)
                 
                 Button(action: copyLink) {
-                    Text(showCopiedMessage ? "Link Copied" : (hasSavedPrediction || link.hasPrediction ? "Copy Link" : "Make a prediction first"))
+                    Text(showCopiedMessage ? "Link Copied" : "Copy Link")
                         .font(.system(size: 16, weight: .bold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(showCopiedMessage ? Color.green : (hasSavedPrediction || link.hasPrediction ? Color.blue : Color.gray))
+                        .background(showCopiedMessage ? Color.green : Color.blue)
                         .foregroundColor(.white)
                         .cornerRadius(8)
                 }
-                .disabled(!(hasSavedPrediction || link.hasPrediction))
-                .opacity((hasSavedPrediction || link.hasPrediction) ? 1.0 : 0.6)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -720,7 +632,7 @@ struct UseLinkInstructionsView: View {
     private var addToStoryStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
-                Text("3")
+                Text("2")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color.green)
                 
@@ -761,7 +673,7 @@ struct UseLinkInstructionsView: View {
     private var startEarningStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
-                Text("4")
+                Text("3")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color.green)
                 
@@ -769,7 +681,7 @@ struct UseLinkInstructionsView: View {
                     .font(.system(size: 18, weight: .semibold))
             }
             
-            Text("Earn $1 for every rating your story receives")
+            Text("Earn $0.50 for every rating your story receives")
                 .font(.system(size: 16))
                 .foregroundColor(.gray)
                 .lineSpacing(2.5)
@@ -780,60 +692,6 @@ struct UseLinkInstructionsView: View {
         .padding()
         .background(Color.gray.opacity(0.1))
         .cornerRadius(8)
-    }
-    
-    private func savePrediction() {
-        guard predictedRating > 0 else { return }
-        
-        isSavingPrediction = true
-        
-        let db = Firestore.firestore()
-        
-        db.collection("rating_links")
-            .whereField("linkId", isEqualTo: link.linkId)
-            .getDocuments { snapshot, error in
-                if let error = error {
-                    print("Error finding link:", error)
-                    isSavingPrediction = false
-                    return
-                }
-                
-                guard let document = snapshot?.documents.first else {
-                    print("Link document not found")
-                    isSavingPrediction = false
-                    return
-                }
-                
-                document.reference.updateData([
-                    "predictedRating": predictedRating
-                ]) { error in
-                    isSavingPrediction = false
-                    
-                    if let error = error {
-                        print("Error saving prediction:", error)
-                        Analytics.shared.trackError(
-                            message: "Failed to save prediction",
-                            properties: ["link_id": link.id, "error": error.localizedDescription]
-                        )
-                    } else {
-                        hasSavedPrediction = true
-                        showPredictionSaved = true
-                        
-                        Analytics.shared.track(
-                            event: "prediction_saved",
-                            properties: [
-                                AnalyticsProperty.screenName: "link_instructions",
-                                "link_id": link.id,
-                                "predicted_rating": predictedRating
-                            ]
-                        )
-                        
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                            showPredictionSaved = false
-                        }
-                    }
-                }
-            }
     }
     
     private func copyLink() {

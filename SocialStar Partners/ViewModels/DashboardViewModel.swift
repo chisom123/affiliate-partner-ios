@@ -121,14 +121,11 @@ class DashboardViewModel: ObservableObject {
                     
                     self?.ratingLinks = links
                     
-                    // NEW: Track prediction statistics
-                    let linksWithPredictions = links.filter { $0.hasPrediction }
                     Analytics.shared.track(
                         event: "rating_links_loaded",
                         properties: [
                             "link_count": links.count,
-                            "active_links": links.filter { $0.isActive }.count,
-                            "links_with_predictions": linksWithPredictions.count
+                            "active_links": links.filter { $0.isActive }.count
                         ]
                     )
                     
@@ -168,21 +165,6 @@ class DashboardViewModel: ObservableObject {
                         if let index = self.ratingLinks.firstIndex(where: { $0.id == link.id }) {
                             self.ratingLinks[index].averageRating = average
                             self.ratingLinks[index].ratingCount = ratings.count
-                            
-                            // NEW: Track prediction accuracy if prediction exists
-                            if let prediction = link.predictedRating, ratings.count > 0 {
-                                let accuracy = self.ratingLinks[index].predictionAccuracy ?? 0
-                                Analytics.shared.track(
-                                    event: "prediction_accuracy_calculated",
-                                    properties: [
-                                        "link_id": link.id,
-                                        "predicted_rating": prediction,
-                                        "actual_rating": average,
-                                        "accuracy_percentage": accuracy,
-                                        "rating_count": ratings.count
-                                    ]
-                                )
-                            }
                         }
                     }
                 }

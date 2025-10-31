@@ -13,7 +13,6 @@ struct RatingLink: Identifiable {
     let status: String
     var averageRating: Double
     var ratingCount: Int
-    var predictedRating: Double? // NEW: Partner's prediction
     
     // NEW: Parlay amounts
     let parlayEntry: Int
@@ -26,19 +25,6 @@ struct RatingLink: Identifiable {
     
     var hasRatings: Bool {
         ratingCount > 0
-    }
-    
-    // NEW: Check if partner made a prediction
-    var hasPrediction: Bool {
-        predictedRating != nil
-    }
-    
-    // NEW: Calculate prediction accuracy (0-100%)
-    var predictionAccuracy: Double? {
-        guard let predicted = predictedRating, hasRatings else { return nil }
-        let difference = abs(predicted - averageRating)
-        let maxDifference = 4.0 // Maximum possible difference (5 - 1)
-        return max(0, (1 - difference / maxDifference) * 100)
     }
 }
 
@@ -56,7 +42,6 @@ extension RatingLink {
         self.status = data["status"] as? String ?? "active"
         self.averageRating = 0.0
         self.ratingCount = 0
-        self.predictedRating = data["predictedRating"] as? Double // NEW
         
         // NEW: Initialize parlay amounts with fallback values
         self.parlayEntry = data["parlayEntry"] as? Int ?? 25
@@ -75,7 +60,6 @@ struct AffiliateData {
     let status: String
     let balance: Double
     let totalWithdrawn: Double
-    let profilePictureUrl: String? // NEW: Profile picture URL
 }
 
 // MARK: - Firestore Conversion
@@ -96,11 +80,10 @@ extension AffiliateData {
         self.status = data["status"] as? String ?? "active"
         self.balance = data["balance"] as? Double ?? 0.0
         self.totalWithdrawn = data["totalWithdrawn"] as? Double ?? 0.0
-        self.profilePictureUrl = data["profilePictureUrl"] as? String // NEW
     }
     
     var canWithdraw: Bool {
-        balance >= 10
+        balance >= 5
     }
     
     var lifetimeEarnings: Double {
