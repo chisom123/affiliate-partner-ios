@@ -416,6 +416,7 @@ struct CustomMessageCard: View {
             Text(message)
                 .font(.system(.body))
                 .foregroundColor(type.color)
+                .fontWeight(.bold)
                 .multilineTextAlignment(.leading)
             
             Spacer()
