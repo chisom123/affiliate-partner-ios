@@ -421,7 +421,7 @@ struct CustomMessageCard: View {
             
             Spacer()
         }
-        .padding(16)
+        .padding(.vertical, 16)
     }
 }
 
