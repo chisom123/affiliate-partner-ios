@@ -691,7 +691,7 @@ struct UseLinkInstructionsView: View {
                     .font(.system(size: 16))
                     .foregroundColor(.orange)
                 
-                Text("Make sure you add text to your story link e.g. \"Rate my outfit\"")
+                Text("Make sure you add text to your link e.g. \"Rate my outfit\"")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.primary)
             }
