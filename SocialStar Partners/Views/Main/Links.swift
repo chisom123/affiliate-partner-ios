@@ -453,8 +453,8 @@ struct UseLinkInstructionsView: View {
     
     private var calculatorContent: some View {
         VStack(spacing: 18) {
-            ratingsRow
             calculatorSlider
+            ratingsRow
             earningsRow
         }
     }
@@ -462,7 +462,7 @@ struct UseLinkInstructionsView: View {
     private var ratingsRow: some View {
         HStack {
             Text("Ratings")
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundColor(.secondary)
             
             Spacer()
@@ -519,13 +519,13 @@ struct UseLinkInstructionsView: View {
     private var earningsRow: some View {
         HStack {
             Text("Earnings")
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundColor(.secondary)
             
             Spacer()
             
             Text("$\(calculatorRatings * 0.25, specifier: "%.2f")")
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.green)
         }
     }
@@ -538,13 +538,16 @@ struct UseLinkInstructionsView: View {
                         .font(.system(size: 24, weight: .bold))
                         .padding(.bottom)
                     
-                    // Step 1: Copy Link
+                    // Step 1: See Examples
+                    seeExamplesStepView
+                    
+                    // Step 2: Copy Link
                     copyLinkStepView
                     
-                    // Step 2: Add to Story
+                    // Step 3: Add to Story
                     addToStoryStepView
                     
-                    // Step 3: Start Earning
+                    // Step 4: Start Earning
                     startEarningStepView
                 }
                 .padding()
@@ -589,10 +592,48 @@ struct UseLinkInstructionsView: View {
         }
     }
     
-    private var copyLinkStepView: some View {
+    private var seeExamplesStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
                 Text("1")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Color.green)
+                
+                Text("Check out Examples")
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            
+            Text("Check out example stories")
+                .font(.system(size: 16))
+                .foregroundColor(.gray)
+            
+            Button(action: {
+                Analytics.shared.trackTap(
+                    elementId: "see_examples_button",
+                    screenName: "link_instructions",
+                    properties: ["link_id": link.id]
+                )
+                showExamples = true
+            }) {
+                Text("View Examples")
+                    .font(.system(size: 16, weight: .bold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(8)
+    }
+    
+    private var copyLinkStepView: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .center) {
+                Text("2")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color.green)
                 
@@ -632,7 +673,7 @@ struct UseLinkInstructionsView: View {
     private var addToStoryStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
-                Text("2")
+                Text("3")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color.green)
                 
@@ -645,24 +686,19 @@ struct UseLinkInstructionsView: View {
                 .foregroundColor(.gray)
                 .lineSpacing(2.5)
             
-            Button(action: {
-                Analytics.shared.trackTap(
-                    elementId: "see_examples_button",
-                    screenName: "link_instructions",
-                    properties: ["link_id": link.id]
-                )
-                showExamples = true
-            }) {
-                HStack(spacing: 4) {
-                    Text("See Examples")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.blue)
-                    
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.blue)
-                }
+            HStack(alignment: .center, spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.orange)
+                
+                Text("Make sure you add text to your story link e.g. \"Rate my outfit\"")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.primary)
             }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.orange.opacity(0.1))
+            .cornerRadius(6)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
@@ -673,7 +709,7 @@ struct UseLinkInstructionsView: View {
     private var startEarningStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
-                Text("3")
+                Text("4")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color.green)
                 
