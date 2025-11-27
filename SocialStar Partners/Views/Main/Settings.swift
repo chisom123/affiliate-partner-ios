@@ -2,6 +2,8 @@ import SwiftUI
 import Firebase
 import FirebaseAuth
 import MessageUI
+import PhotosUI
+import FirebaseStorage
 
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
@@ -27,6 +29,86 @@ struct SettingsView: View {
                     // Personal Information Section
                     CustomSection(title: "Personal Information") {
                         VStack(spacing: 16) {
+                            // Profile Picture Section
+                            VStack(spacing: 12) {
+                                HStack {
+                                    Text("Profile Picture")
+                                        .font(.system(.subheadline))
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 16)
+                                
+                                HStack(spacing: 16) {
+                                    // Profile Picture with Edit Capability
+                                    PhotosPicker(
+                                        selection: $viewModel.selectedItem,
+                                        matching: .images,
+                                        photoLibrary: .shared()
+                                    ) {
+                                        ZStack(alignment: .bottomTrailing) {
+                                            if viewModel.isUploadingProfilePicture {
+                                                // Show spinner in the profile picture area
+                                                Circle()
+                                                    .fill(Color.gray.opacity(0.3))
+                                                    .frame(width: 60, height: 60)
+                                                    .overlay(
+                                                        ProgressView()
+                                                            .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                                                    )
+                                                
+                                            } else if let profileImage = viewModel.profileImage {
+                                                Image(uiImage: profileImage)
+                                                    .resizable()
+                                                    .scaledToFill()
+                                                    .frame(width: 60, height: 60)
+                                                    .clipShape(Circle())
+                                            } else if let profilePictureUrl = viewModel.profilePictureUrl,
+                                                      !profilePictureUrl.isEmpty {
+                                                AsyncImage(url: URL(string: profilePictureUrl)) { image in
+                                                    image
+                                                        .resizable()
+                                                        .scaledToFill()
+                                                        .frame(width: 60, height: 60)
+                                                        .clipShape(Circle())
+                                                } placeholder: {
+                                                    Circle()
+                                                        .fill(Color.gray.opacity(0.3))
+                                                        .frame(width: 60, height: 60)
+                                                        .overlay(
+                                                            Image(systemName: "person.fill")
+                                                                .foregroundColor(.gray)
+                                                        )
+                                                }
+                                            } else {
+                                                Circle()
+                                                    .fill(Color.gray.opacity(0.3))
+                                                    .frame(width: 60, height: 60)
+                                                    .overlay(
+                                                        Image(systemName: "person.fill")
+                                                            .foregroundColor(.gray)
+                                                    )
+                                            }
+                                        }
+                                        
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Tap to change photo")
+                                                .font(.system(.body))
+                                                .foregroundColor(.blue)
+                                                .fontWeight(.semibold)
+                                                .padding(.leading, 10)
+                                        }
+                                    }
+                        
+                                    
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 16)
+                                
+                            }
+                            .padding(.vertical, 8)
+                            
                             CustomTextField(
                                 title: "First Name",
                                 text: $viewModel.firstName
@@ -156,11 +238,22 @@ struct SettingsView: View {
                     name: "settings",
                     properties: [
                         "user_email": viewModel.email.isEmpty ? "not_loaded" : "loaded",
-                        "has_user_data": !viewModel.firstName.isEmpty || !viewModel.lastName.isEmpty
+                        "has_user_data": !viewModel.firstName.isEmpty || !viewModel.lastName.isEmpty,
+                        "has_profile_picture": !(viewModel.profilePictureUrl?.isEmpty ?? true)
                     ]
                 )
                 
                 viewModel.loadUserData()
+            }
+            .onChange(of: viewModel.selectedItem) { newItem in
+                Task {
+                    if let data = try? await newItem?.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        await MainActor.run {
+                            viewModel.uploadProfilePicture(image)
+                        }
+                    }
+                }
             }
             // Log Out Confirmation Alert
             .alert("Log Out", isPresented: $viewModel.showSignOutConfirmation) {
@@ -431,7 +524,11 @@ class SettingsViewModel: ObservableObject {
     @Published var firstName = ""
     @Published var lastName = ""
     @Published var email = ""
+    @Published var profilePictureUrl: String?
+    @Published var profileImage: UIImage?
+    @Published var selectedItem: PhotosPickerItem?
     @Published var isLoading = false
+    @Published var isUploadingProfilePicture = false
     @Published var errorMessage = ""
     @Published var successMessage = ""
     @Published var showSignOutConfirmation = false
@@ -439,6 +536,8 @@ class SettingsViewModel: ObservableObject {
     
     private var originalFirstName = ""
     private var originalLastName = ""
+    private let db = Firestore.firestore()
+    private let storage = Storage.storage()
     
     var hasNameChanged: Bool {
         firstName != originalFirstName || lastName != originalLastName
@@ -454,7 +553,6 @@ class SettingsViewModel: ObservableObject {
         
         email = user.email ?? "Unknown"
         
-        let db = Firestore.firestore()
         db.collection("affiliates").document(user.uid).getDocument { [weak self] document, error in
             DispatchQueue.main.async {
                 if let document = document,
@@ -463,6 +561,7 @@ class SettingsViewModel: ObservableObject {
                     
                     self?.firstName = data["firstName"] as? String ?? ""
                     self?.lastName = data["lastName"] as? String ?? ""
+                    self?.profilePictureUrl = data["profilePictureUrl"] as? String
                     self?.originalFirstName = self?.firstName ?? ""
                     self?.originalLastName = self?.lastName ?? ""
                     
@@ -473,6 +572,7 @@ class SettingsViewModel: ObservableObject {
                             AnalyticsProperty.screenName: "settings",
                             "has_first_name": !(self?.firstName.isEmpty ?? true),
                             "has_last_name": !(self?.lastName.isEmpty ?? true),
+                            "has_profile_picture": !(self?.profilePictureUrl?.isEmpty ?? true),
                             "email_domain": self?.email.components(separatedBy: "@").last ?? "unknown"
                         ]
                     )
@@ -484,6 +584,85 @@ class SettingsViewModel: ObservableObject {
                             AnalyticsProperty.screenName: "settings"
                         ]
                     )
+                }
+            }
+        }
+    }
+    
+    func uploadProfilePicture(_ image: UIImage) {
+        guard let userId = Auth.auth().currentUser?.uid,
+              let imageData = image.optimizedForProfilePicture() else { return }
+        
+        isUploadingProfilePicture = true
+        errorMessage = ""
+        successMessage = ""
+        
+        let storageRef = storage.reference()
+        let profilePicturesRef = storageRef.child("profile_pictures/\(userId)_\(UUID().uuidString).jpg")
+        
+        let metadata = StorageMetadata()
+        metadata.contentType = "image/jpeg"
+        
+        profilePicturesRef.putData(imageData, metadata: metadata) { [weak self] metadata, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    self?.isUploadingProfilePicture = false
+                    self?.errorMessage = "Failed to upload image: \(error.localizedDescription)"
+                }
+                return
+            }
+            
+            // Get download URL
+            profilePicturesRef.downloadURL { [weak self] url, error in
+                DispatchQueue.main.async {
+                    self?.isUploadingProfilePicture = false
+                    
+                    if let error = error {
+                        self?.errorMessage = "Failed to get image URL: \(error.localizedDescription)"
+                        return
+                    }
+                    
+                    // Update Firestore with new profile picture URL
+                    self?.updateProfilePictureUrl(url?.absoluteString, for: userId)
+                }
+            }
+        }
+    }
+    
+    private func updateProfilePictureUrl(_ url: String?, for userId: String) {
+        var updateData: [String: Any] = [:]
+        
+        if let url = url {
+            updateData["profilePictureUrl"] = url
+        } else {
+            updateData["profilePictureUrl"] = NSNull()
+        }
+        
+        db.collection("affiliates").document(userId).updateData(updateData) { [weak self] error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.errorMessage = "Failed to update profile picture: \(error.localizedDescription)"
+                    return
+                }
+                
+                // Update local data
+                self?.profilePictureUrl = url
+                self?.profileImage = nil // Clear the local image to use the URL
+                self?.successMessage = "Profile picture updated successfully"
+                
+                // Analytics: Track profile picture update
+                Analytics.shared.track(
+                    event: "profile_picture_updated",
+                    properties: [
+                        AnalyticsProperty.screenName: "settings",
+                        "user_id": userId,
+                        "has_profile_picture": url != nil
+                    ]
+                )
+                
+                // Clear success message after 3 seconds
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    self?.successMessage = ""
                 }
             }
         }
@@ -515,7 +694,6 @@ class SettingsViewModel: ObservableObject {
         errorMessage = ""
         successMessage = ""
         
-        let db = Firestore.firestore()
         db.collection("affiliates").document(user.uid).updateData([
             "firstName": trimmedFirstName,
             "lastName": trimmedLastName
@@ -627,5 +805,53 @@ class SettingsViewModel: ObservableObject {
                 ]
             )
         }
+    }
+}
+
+// MARK: - UIImage Extension for Profile Picture Optimization
+extension UIImage {
+    func optimizedForProfilePicture(maxDimension: CGFloat = 400.0, compressionQuality: CGFloat = 0.7) -> Data? {
+        // Profile pictures are smaller, so we use a smaller max dimension
+        let resizedImage = self.resizeIfNeeded(maxDimension: maxDimension)
+        return resizedImage.compressedData(compressionQuality: compressionQuality, targetSize: 200 * 1024) // 200KB target
+    }
+    
+    private func resizeIfNeeded(maxDimension: CGFloat) -> UIImage {
+        let originalWidth = self.size.width
+        let originalHeight = self.size.height
+        
+        if originalWidth <= maxDimension && originalHeight <= maxDimension {
+            return self
+        }
+        
+        let scaleFactor: CGFloat
+        if originalWidth > originalHeight {
+            scaleFactor = maxDimension / originalWidth
+        } else {
+            scaleFactor = maxDimension / originalHeight
+        }
+        
+        let newWidth = originalWidth * scaleFactor
+        let newHeight = originalHeight * scaleFactor
+        let newSize = CGSize(width: newWidth, height: newHeight)
+        
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+        self.draw(in: CGRect(origin: .zero, size: newSize))
+        let resizedImage = UIGraphicsGetImageFromCurrentImageContext() ?? self
+        UIGraphicsEndImageContext()
+        
+        return resizedImage
+    }
+    
+    private func compressedData(compressionQuality: CGFloat, targetSize: Int) -> Data? {
+        var quality = compressionQuality
+        var data = self.jpegData(compressionQuality: quality)
+        
+        while let imageData = data, imageData.count > targetSize && quality > 0.1 {
+            quality -= 0.1
+            data = self.jpegData(compressionQuality: quality)
+        }
+        
+        return data
     }
 }

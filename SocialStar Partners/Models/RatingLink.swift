@@ -13,6 +13,7 @@ struct RatingLink: Identifiable {
     let status: String
     var averageRating: Double
     var ratingCount: Int
+    var photoUrl: String? // Photo to be rated
     
     // NEW: Parlay amounts
     let parlayEntry: Int
@@ -42,6 +43,7 @@ extension RatingLink {
         self.status = data["status"] as? String ?? "active"
         self.averageRating = 0.0
         self.ratingCount = 0
+        self.photoUrl = data["photoUrl"] as? String // NEW: Photo URL
         
         // NEW: Initialize parlay amounts with fallback values
         self.parlayEntry = data["parlayEntry"] as? Int ?? 25
@@ -60,6 +62,7 @@ struct AffiliateData {
     let status: String
     let balance: Double
     let totalWithdrawn: Double
+    let profilePictureUrl: String? // NEW: Profile picture URL
 }
 
 // MARK: - Firestore Conversion
@@ -80,6 +83,7 @@ extension AffiliateData {
         self.status = data["status"] as? String ?? "active"
         self.balance = data["balance"] as? Double ?? 0.0
         self.totalWithdrawn = data["totalWithdrawn"] as? Double ?? 0.0
+        self.profilePictureUrl = data["profilePictureUrl"] as? String // NEW
     }
     
     var canWithdraw: Bool {

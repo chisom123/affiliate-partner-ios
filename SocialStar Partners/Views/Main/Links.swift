@@ -1,5 +1,7 @@
 import SwiftUI
 import FirebaseFirestore
+import PhotosUI
+import FirebaseStorage
 
 struct LinksView: View {
     @StateObject private var viewModel = DashboardViewModel()
@@ -100,7 +102,8 @@ struct LinksView: View {
                                                 "link_earnings": link.earnings,
                                                 "link_rating_count": link.ratingCount,
                                                 "link_average_rating": link.averageRating,
-                                                "link_is_active": link.isActive
+                                                "link_is_active": link.isActive,
+                                                "has_photo": link.photoUrl != nil
                                             ]
                                         )
                                     },
@@ -185,7 +188,7 @@ struct LinksView: View {
             viewModel.loadData()
         }
         .sheet(item: $selectedLinkForInstructions) { link in
-            UseLinkInstructionsView(link: link)
+            UseLinkInstructionsView(link: link, viewModel: viewModel)
         }
     }
 }
@@ -203,7 +206,7 @@ struct LinkCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
-            HStack(alignment: .top) { // Changed from default .center to .top
+            HStack(alignment: .top) {
                 VStack(alignment: .leading) {
                     if isEditingTitle {
                         TextField("Link Title", text: $editingTitle)
@@ -227,7 +230,6 @@ struct LinkCard: View {
                                 editingTitle = link.title
                                 isTitleFieldFocused = true
                                 
-                                // Analytics: Track title editing started
                                 Analytics.shared.track(
                                     event: "link_title_edit_started",
                                     properties: [
@@ -250,7 +252,6 @@ struct LinkCard: View {
                                 .foregroundColor(.gray)
                         }
                         .onTapGesture {
-                            // Analytics: Track title edit tap
                             Analytics.shared.trackTap(
                                 elementId: "link_title_edit",
                                 screenName: "links",
@@ -288,7 +289,7 @@ struct LinkCard: View {
                         .font(.system(size: 12))
                         .foregroundColor(.gray)
                 }
-                .frame(maxWidth: .infinity, minHeight: 60)  // Fixed height for consistency
+                .frame(maxWidth: .infinity, minHeight: 60)
                 .background(Color.green.opacity(0.1))
                 .cornerRadius(6)
                 
@@ -312,7 +313,7 @@ struct LinkCard: View {
                         .font(.system(size: 12))
                         .foregroundColor(.gray)
                 }
-                .frame(maxWidth: .infinity, minHeight: 60)  // Fixed height for consistency
+                .frame(maxWidth: .infinity, minHeight: 60)
                 .background(Color.orange.opacity(0.1))
                 .cornerRadius(6)
             }
@@ -336,7 +337,6 @@ struct LinkCard: View {
         .background(Color.gray.opacity(0.1))
         .cornerRadius(8)
         .onAppear {
-            // Analytics: Track link card view (only once per card)
             if !hasTrackedView {
                 Analytics.shared.track(
                     event: "link_card_viewed",
@@ -348,14 +348,14 @@ struct LinkCard: View {
                         "link_average_rating": link.averageRating,
                         "link_is_active": link.isActive,
                         "link_age_days": Calendar.current.dateComponents([.day], from: link.createdAt, to: Date()).day ?? 0,
-                        "has_ratings": link.hasRatings
+                        "has_ratings": link.hasRatings,
+                        "has_photo": link.photoUrl != nil
                     ]
                 )
                 hasTrackedView = true
             }
         }
         .onTapGesture {
-            // Analytics: Track link card tap (general interaction)
             Analytics.shared.trackTap(
                 elementId: "link_card",
                 screenName: "links",
@@ -366,7 +366,6 @@ struct LinkCard: View {
                 ]
             )
             
-            // Dismiss editing when tapping outside the title
             if isEditingTitle {
                 saveTitle()
             }
@@ -383,7 +382,6 @@ struct LinkCard: View {
         if !trimmedTitle.isEmpty && trimmedTitle != link.title {
             onUpdateTitle(trimmedTitle)
         } else if trimmedTitle.isEmpty || trimmedTitle == link.title {
-            // Analytics: Track title edit cancelled
             Analytics.shared.track(
                 event: "link_title_edit_cancelled",
                 properties: [
@@ -394,22 +392,6 @@ struct LinkCard: View {
             )
         }
         isEditingTitle = false
-        isTitleFieldFocused = false
-    }
-    
-    private func cancelEditing() {
-        // Analytics: Track explicit title edit cancellation
-        Analytics.shared.track(
-            event: "link_title_edit_cancelled",
-            properties: [
-                AnalyticsProperty.screenName: "links",
-                "link_id": link.id,
-                "reason": "explicit_cancel"
-            ]
-        )
-        
-        isEditingTitle = false
-        editingTitle = link.title
         isTitleFieldFocused = false
     }
     
@@ -435,13 +417,24 @@ struct LinkCard: View {
 
 struct UseLinkInstructionsView: View {
     let link: RatingLink
+    let viewModel: DashboardViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var showCopiedMessage = false
     @State private var hasTrackedView = false
     @State private var calculatorRatings = 30.0
     @State private var showExamples = false
     
-    // Calculator section as a computed property to reduce complexity
+    // NEW: Photo upload states
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var uploadedPhoto: UIImage?
+    @State private var isUploadingPhoto = false
+    @State private var hasUploadedPhoto = false // NEW: Local state for immediate UI update
+    
+    // Computed property to check if photo is available
+    private var photoIsUploaded: Bool {
+        hasUploadedPhoto || link.photoUrl != nil
+    }
+    
     private var calculatorSection: some View {
         VStack(spacing: 15) {
             calculatorContent
@@ -453,7 +446,9 @@ struct UseLinkInstructionsView: View {
     
     private var calculatorContent: some View {
         VStack(spacing: 18) {
-            calculatorSlider
+            if photoIsUploaded {
+                calculatorSlider
+            }
             ratingsRow
             earningsRow
         }
@@ -538,16 +533,19 @@ struct UseLinkInstructionsView: View {
                         .font(.system(size: 24, weight: .bold))
                         .padding(.bottom)
                     
-                    // Step 1: See Examples
+                    // Step 1: Upload Photo
+                    uploadPhotoStepView
+                    
+                    // Step 2: See Examples
                     seeExamplesStepView
                     
-                    // Step 2: Copy Link
+                    // Step 3: Copy Link
                     copyLinkStepView
                     
-                    // Step 3: Add to Story
+                    // Step 4: Add to Story
                     addToStoryStepView
                     
-                    // Step 4: Start Earning
+                    // Step 5: Start Earning
                     startEarningStepView
                 }
                 .padding()
@@ -563,7 +561,8 @@ struct UseLinkInstructionsView: View {
                                 "link_id": link.id,
                                 "completion_type": "close_button",
                                 "final_calculator_ratings": Int(calculatorRatings),
-                                "final_calculator_earnings": calculatorRatings * 0.25
+                                "final_calculator_earnings": calculatorRatings * 0.25,
+                                "has_uploaded_photo": link.photoUrl != nil
                             ]
                         )
                         dismiss()
@@ -584,23 +583,133 @@ struct UseLinkInstructionsView: View {
                         "link_id": link.id,
                         "link_earnings": link.earnings,
                         "link_rating_count": link.ratingCount,
-                        "link_is_active": link.isActive
+                        "link_is_active": link.isActive,
+                        "has_photo": link.photoUrl != nil
                     ]
                 )
                 hasTrackedView = true
             }
+            
+            // Set hasUploadedPhoto if photo already exists
+            if link.photoUrl != nil {
+                hasUploadedPhoto = true
+            }
+        }
+        .onChange(of: selectedPhotoItem) { newItem in
+            Task {
+                if let data = try? await newItem?.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    await MainActor.run {
+                        uploadedPhoto = image
+                        isUploadingPhoto = true
+                        viewModel.uploadLinkPhoto(image, for: link)
+                    }
+                }
+            }
+        }
+        .onChange(of: viewModel.isUploadingPhoto) { uploading in
+            if !uploading && uploadedPhoto != nil {
+                // Photo upload completed
+                hasUploadedPhoto = true
+            }
         }
     }
     
-    private var seeExamplesStepView: some View {
+    // NEW: Upload Photo Step
+    private var uploadPhotoStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
                 Text("1")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color.green)
                 
+                Text("Upload Photo")
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            
+            Text("Upload the photo that will be used in your Instagram story")
+                .font(.system(size: 16))
+                .foregroundColor(.gray)
+            
+            VStack(spacing: 12) {
+                // Photo Preview
+                if viewModel.isUploadingPhoto {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 200)
+                        .overlay(
+                            ProgressView()
+                                .scaleEffect(1.2)
+                                .progressViewStyle(CircularProgressViewStyle(tint: .black))
+                        )
+                } else if let photoUrl = link.photoUrl, !photoUrl.isEmpty {
+                    AsyncImage(url: URL(string: photoUrl)) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(height: 200)
+                            .frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    } placeholder: {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(height: 200)
+                    }
+                } else if let uploadedPhoto = uploadedPhoto {
+                    Image(uiImage: uploadedPhoto)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(height: 200)
+                        .frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.1))
+                        .frame(height: 200)
+                        .overlay(
+                            VStack(spacing: 8) {
+                                Image(systemName: "photo")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.gray)
+                            }
+                        )
+                }
+                
+                // Upload Button
+                PhotosPicker(
+                    selection: $selectedPhotoItem,
+                    matching: .images,
+                    photoLibrary: .shared()
+                ) {
+                    HStack {
+                        Text(photoIsUploaded ? "Change Photo" : "Upload Photo")
+                            .font(.system(size: 16, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                }
+                .disabled(viewModel.isUploadingPhoto)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(8)
+    }
+    
+    private var seeExamplesStepView: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .center) {
+                Text("2")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(photoIsUploaded ? Color.green : Color.gray)
+                
                 Text("Check out Examples")
                     .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(photoIsUploaded ? .primary : .gray)
             }
             
             Text("Check out example stories")
@@ -619,10 +728,11 @@ struct UseLinkInstructionsView: View {
                     .font(.system(size: 16, weight: .bold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
+                    .background(photoIsUploaded ? Color.blue : Color.gray.opacity(0.4))
+                    .foregroundColor(photoIsUploaded ? .white : Color.gray.opacity(0.7))
                     .cornerRadius(8)
             }
+            .disabled(!photoIsUploaded)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
@@ -633,15 +743,16 @@ struct UseLinkInstructionsView: View {
     private var copyLinkStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
-                Text("2")
+                Text("3")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(Color.green)
+                    .foregroundColor(photoIsUploaded ? Color.green : Color.gray)
                 
                 Text("Copy Link")
                     .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(photoIsUploaded ? .primary : .gray)
             }
             
-            Text("Copy your unique rating link")
+            Text(photoIsUploaded ? "Copy your unique rating link" : "Upload a photo first to unlock this step")
                 .font(.system(size: 16))
                 .foregroundColor(.gray)
             
@@ -652,16 +763,23 @@ struct UseLinkInstructionsView: View {
                     .padding(.vertical, 10)
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(8)
+                    .opacity(photoIsUploaded ? 1.0 : 0.5)
                 
                 Button(action: copyLink) {
-                    Text(showCopiedMessage ? "Link Copied" : "Copy Link")
-                        .font(.system(size: 16, weight: .bold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(showCopiedMessage ? Color.green : Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
+                    HStack(spacing: 8) {
+                        Text(showCopiedMessage ? "Link Copied" : (photoIsUploaded ? "Copy Link" : "Upload Photo First"))
+                            .font(.system(size: 16, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        showCopiedMessage ? Color.green :
+                        (photoIsUploaded ? Color.blue : Color.gray.opacity(0.4))
+                    )
+                    .foregroundColor(photoIsUploaded ? .white : Color.gray.opacity(0.7))
+                    .cornerRadius(8)
                 }
+                .disabled(!photoIsUploaded)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -673,25 +791,27 @@ struct UseLinkInstructionsView: View {
     private var addToStoryStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
-                Text("3")
+                Text("4")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(Color.green)
+                    .foregroundColor(photoIsUploaded ? Color.green : Color.gray)
                 
                 Text("Add Link to Story")
                     .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(photoIsUploaded ? .primary : .gray)
             }
             
-            Text("Add the link to your Instagram story when sharing a photo or video")
+            Text("Add the link to your Instagram story when sharing your photo")
                 .font(.system(size: 16))
                 .foregroundColor(.gray)
                 .lineSpacing(2.5)
+                .opacity(photoIsUploaded ? 1.0 : 0.6)
             
             HStack(alignment: .center, spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 16))
                     .foregroundColor(.orange)
                 
-                Text("Make sure you add text to your link e.g. \"Rate my outfit\"")
+                Text("Make sure you add the text \"rate!\" to your link")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.primary)
             }
@@ -699,38 +819,57 @@ struct UseLinkInstructionsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.orange.opacity(0.1))
             .cornerRadius(6)
+            .opacity(photoIsUploaded ? 1.0 : 0.5)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(Color.gray.opacity(0.1))
         .cornerRadius(8)
+        .opacity(photoIsUploaded ? 1.0 : 0.6)
     }
     
     private var startEarningStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
-                Text("4")
+                Text("5")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(Color.green)
+                    .foregroundColor(photoIsUploaded ? Color.green : Color.gray)
                 
                 Text("Start Earning")
                     .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(photoIsUploaded ? .primary : .gray)
             }
             
             Text("Earn $0.25 for every rating your story receives")
                 .font(.system(size: 16))
                 .foregroundColor(.gray)
                 .lineSpacing(2.5)
+                .opacity(photoIsUploaded ? 1.0 : 0.6)
             
             calculatorSection
+                .opacity(photoIsUploaded ? 1.0 : 0.5)
+                .allowsHitTesting(photoIsUploaded)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(Color.gray.opacity(0.1))
         .cornerRadius(8)
+        .opacity(photoIsUploaded ? 1.0 : 0.6)
     }
     
     private func copyLink() {
+        // Don't copy if no photo uploaded
+        guard photoIsUploaded else {
+            Analytics.shared.track(
+                event: "copy_link_blocked_no_photo",
+                properties: [
+                    AnalyticsProperty.screenName: "link_instructions",
+                    "link_id": link.id
+                ]
+            )
+            return
+        }
+        
         Analytics.shared.trackTap(
             elementId: "copy_link_button",
             screenName: "link_instructions",
@@ -764,8 +903,7 @@ struct ExamplesView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var currentIndex = 0
     
-    // Replace with your actual screenshot names
-    private let exampleImages = ["example1", "example2", "example3", "example4"] // Your screenshot asset names
+    private let exampleImages = ["example1", "example2", "example3", "example4"]
     
     var body: some View {
         NavigationView {
@@ -782,12 +920,11 @@ struct ExamplesView: View {
                                 .aspectRatio(contentMode: .fit)
                                 .tag(index)
                                 .cornerRadius(8)
-                                .padding(.horizontal, 70) // Add padding to prevent overlap
+                                .padding(.horizontal, 70)
                         }
                     }
                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                     
-                    // Navigation arrows overlaid on center sides
                     HStack {
                         Button(action: {
                             withAnimation {
@@ -819,7 +956,6 @@ struct ExamplesView: View {
                     }
                 }
                 
-                // Page indicator below the image
                 Text("\(currentIndex + 1) of \(exampleImages.count)")
                     .foregroundColor(.gray)
                     .font(.system(size: 15, weight: .semibold))
