@@ -423,12 +423,13 @@ struct UseLinkInstructionsView: View {
     @State private var hasTrackedView = false
     @State private var calculatorRatings = 30.0
     @State private var showExamples = false
+    @StateObject private var pricingCalculator = AffiliatePricingCalculator.shared
     
     // NEW: Photo upload states
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var uploadedPhoto: UIImage?
     @State private var isUploadingPhoto = false
-    @State private var hasUploadedPhoto = false // NEW: Local state for immediate UI update
+    @State private var hasUploadedPhoto = false
     
     // Computed property to check if photo is available
     private var photoIsUploaded: Bool {
@@ -501,7 +502,8 @@ struct UseLinkInstructionsView: View {
                                         AnalyticsProperty.screenName: "link_instructions",
                                         "link_id": link.id,
                                         "calculated_ratings": Int(calculatorRatings),
-                                        "calculated_earnings": calculatorRatings * 0.25
+                                        "calculated_earnings": calculatorRatings * pricingCalculator.getEarningsPerRating(),
+                                        "earnings_per_rating": pricingCalculator.getEarningsPerRating()
                                     ]
                                 )
                             }
@@ -519,7 +521,7 @@ struct UseLinkInstructionsView: View {
             
             Spacer()
             
-            Text("$\(calculatorRatings * 0.25, specifier: "%.2f")")
+            Text(pricingCalculator.formatEarnings(calculatorRatings * pricingCalculator.getEarningsPerRating()))
                 .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.green)
         }
@@ -561,7 +563,8 @@ struct UseLinkInstructionsView: View {
                                 "link_id": link.id,
                                 "completion_type": "close_button",
                                 "final_calculator_ratings": Int(calculatorRatings),
-                                "final_calculator_earnings": calculatorRatings * 0.25,
+                                "final_calculator_earnings": calculatorRatings * pricingCalculator.getEarningsPerRating(),
+                                "earnings_per_rating": pricingCalculator.getEarningsPerRating(),
                                 "has_uploaded_photo": link.photoUrl != nil
                             ]
                         )
@@ -840,7 +843,7 @@ struct UseLinkInstructionsView: View {
                     .foregroundColor(photoIsUploaded ? .primary : .gray)
             }
             
-            Text("Earn $0.25 for every rating your story receives")
+            Text("Earn \(pricingCalculator.formatEarnings(pricingCalculator.getEarningsPerRating())) for every rating your story receives")
                 .font(.system(size: 16))
                 .foregroundColor(.gray)
                 .lineSpacing(2.5)
