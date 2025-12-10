@@ -63,6 +63,7 @@ struct AffiliateData {
     let balance: Double
     let totalWithdrawn: Double
     let profilePictureUrl: String? // NEW: Profile picture URL
+    let canCreateLinks: Bool // NEW: Controls link creation ability
 }
 
 // MARK: - Firestore Conversion
@@ -84,6 +85,7 @@ extension AffiliateData {
         self.balance = data["balance"] as? Double ?? 0.0
         self.totalWithdrawn = data["totalWithdrawn"] as? Double ?? 0.0
         self.profilePictureUrl = data["profilePictureUrl"] as? String // NEW
+        self.canCreateLinks = data["canCreateLinks"] as? Bool ?? true // NEW: Defaults to true (unblocked)
     }
     
     var canWithdraw: Bool {

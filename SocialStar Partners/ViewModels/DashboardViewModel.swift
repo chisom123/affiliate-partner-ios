@@ -83,7 +83,8 @@ class DashboardViewModel: ObservableObject {
                             properties: [
                                 "balance": affiliateData.balance,
                                 "total_earnings": affiliateData.totalEarnings,
-                                "total_withdrawn": affiliateData.totalWithdrawn
+                                "total_withdrawn": affiliateData.totalWithdrawn,
+                                "can_create_links": affiliateData.canCreateLinks
                             ]
                         )
                     }
@@ -378,6 +379,23 @@ class DashboardViewModel: ObservableObject {
     
     func createNewLink(completion: @escaping (RatingLink?) -> Void) {
         guard let user = Auth.auth().currentUser else {
+            completion(nil)
+            return
+        }
+        
+        // NEW: Check if user is blocked from creating links
+        guard let affiliateData = affiliateData, affiliateData.canCreateLinks else {
+            DispatchQueue.main.async {
+                self.errorMessage = "Link creation is currently paused for your account. Please contact support."
+                
+                Analytics.shared.track(
+                    event: "link_creation_blocked",
+                    properties: [
+                        "user_id": user.uid,
+                        "reason": "canCreateLinks_false"
+                    ]
+                )
+            }
             completion(nil)
             return
         }

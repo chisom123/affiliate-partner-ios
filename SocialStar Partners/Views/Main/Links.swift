@@ -6,12 +6,18 @@ import FirebaseStorage
 struct LinksView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @State private var selectedLinkForInstructions: RatingLink?
+    @State private var showBlockedAlert = false // NEW
     
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
                 ScrollView {
                     VStack(spacing: 20) {
+                        // NEW: Show blocked message if applicable
+                        if let affiliateData = viewModel.affiliateData, !affiliateData.canCreateLinks {
+                            blockedMessageView
+                        }
+                        
                         // Show loading state during initial load
                         if viewModel.isInitialDataLoad && viewModel.ratingLinks.isEmpty {
                             VStack(spacing: 16) {
@@ -38,29 +44,7 @@ struct LinksView: View {
                                 }
                                 
                                 Button(action: {
-                                    Analytics.shared.trackTap(
-                                        elementId: "create_first_link_button",
-                                        screenName: "links",
-                                        properties: [
-                                            "user_state": "empty_state",
-                                            "total_links": viewModel.ratingLinks.count
-                                        ]
-                                    )
-                                    
-                                    viewModel.createNewLink { newLink in
-                                        selectedLinkForInstructions = newLink
-                                        
-                                        if let link = newLink {
-                                            Analytics.shared.track(
-                                                event: "first_link_created",
-                                                properties: [
-                                                    AnalyticsProperty.screenName: "links",
-                                                    "link_id": link.id,
-                                                    "link_title": link.title
-                                                ]
-                                            )
-                                        }
-                                    }
+                                    createLinkWithBlockCheck(source: "empty_state")
                                 }) {
                                     HStack(spacing: 8) {
                                         Image(systemName: "plus.circle.fill")
@@ -71,12 +55,12 @@ struct LinksView: View {
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 24)
                                     .padding(.vertical, 12)
-                                    .background(Color.blue)
+                                    .background(canCreateLinks ? Color.blue : Color.gray)
                                     .cornerRadius(200)
                                 }
-                                .disabled(viewModel.isLoading)
+                                .disabled(viewModel.isLoading || !canCreateLinks)
                                 .opacity(
-                                    viewModel.isLoading ? 0.6 : 1.0
+                                    (viewModel.isLoading || !canCreateLinks) ? 0.6 : 1.0
                                 )
                                 .padding(.top)
                             }
@@ -133,41 +117,22 @@ struct LinksView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
-                        Analytics.shared.trackTap(
-                            elementId: "add_link_toolbar_button",
-                            screenName: "links",
-                            properties: [
-                                "total_links": viewModel.ratingLinks.count,
-                                "user_state": viewModel.ratingLinks.isEmpty ? "empty" : "has_links"
-                            ]
-                        )
-                        
-                        viewModel.createNewLink { newLink in
-                            selectedLinkForInstructions = newLink
-                            
-                            if let link = newLink {
-                                Analytics.shared.track(
-                                    event: "link_created",
-                                    properties: [
-                                        AnalyticsProperty.screenName: "links",
-                                        "link_id": link.id,
-                                        "link_title": link.title,
-                                        "total_links_after": viewModel.ratingLinks.count + 1,
-                                        "creation_source": "toolbar"
-                                    ]
-                                )
-                            }
-                        }
+                        createLinkWithBlockCheck(source: "toolbar")
                     }) {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
-                            .foregroundColor(Color.blue)
+                            .foregroundColor(canCreateLinks ? Color.blue : Color.gray)
                     }
-                    .disabled(viewModel.isLoading)
+                    .disabled(viewModel.isLoading || !canCreateLinks)
                 }
             }
         }
         .navigationViewStyle(StackNavigationViewStyle())
+        .alert("Link Creation Paused", isPresented: $showBlockedAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Link creation is currently paused for your account. Please contact support for assistance.")
+        }
         .onAppear {
             let activeLinks = viewModel.ratingLinks.filter { $0.isActive }
             let totalEarnings = viewModel.ratingLinks.reduce(0) { $0 + $1.earnings }
@@ -181,7 +146,8 @@ struct LinksView: View {
                     "inactive_links": viewModel.ratingLinks.count - activeLinks.count,
                     "total_earnings": totalEarnings,
                     "total_ratings": totalRatings,
-                    "average_earnings_per_link": viewModel.ratingLinks.isEmpty ? 0 : totalEarnings / Double(viewModel.ratingLinks.count)
+                    "average_earnings_per_link": viewModel.ratingLinks.isEmpty ? 0 : totalEarnings / Double(viewModel.ratingLinks.count),
+                    "can_create_links": canCreateLinks
                 ]
             )
             
@@ -189,6 +155,77 @@ struct LinksView: View {
         }
         .sheet(item: $selectedLinkForInstructions) { link in
             UseLinkInstructionsView(link: link, viewModel: viewModel)
+        }
+    }
+    
+    // NEW: Computed property to check if user can create links
+    private var canCreateLinks: Bool {
+        viewModel.affiliateData?.canCreateLinks ?? false
+    }
+    
+    // NEW: Blocked message view
+    private var blockedMessageView: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 20))
+                .foregroundColor(.orange)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Link Creation Paused")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.primary)
+                
+                Text("Please contact support")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding()
+        .background(Color.orange.opacity(0.1))
+        .cornerRadius(8)
+    }
+    
+    // NEW: Helper function to handle link creation with block check
+    private func createLinkWithBlockCheck(source: String) {
+        guard canCreateLinks else {
+            showBlockedAlert = true
+            
+            Analytics.shared.track(
+                event: "blocked_user_attempted_link_creation",
+                properties: [
+                    AnalyticsProperty.screenName: "links",
+                    "creation_source": source
+                ]
+            )
+            return
+        }
+        
+        Analytics.shared.trackTap(
+            elementId: source == "toolbar" ? "add_link_toolbar_button" : "create_first_link_button",
+            screenName: "links",
+            properties: [
+                "total_links": viewModel.ratingLinks.count,
+                "user_state": viewModel.ratingLinks.isEmpty ? "empty" : "has_links"
+            ]
+        )
+        
+        viewModel.createNewLink { newLink in
+            selectedLinkForInstructions = newLink
+            
+            if let link = newLink {
+                Analytics.shared.track(
+                    event: viewModel.ratingLinks.count == 1 ? "first_link_created" : "link_created",
+                    properties: [
+                        AnalyticsProperty.screenName: "links",
+                        "link_id": link.id,
+                        "link_title": link.title,
+                        "total_links_after": viewModel.ratingLinks.count,
+                        "creation_source": source
+                    ]
+                )
+            }
         }
     }
 }
