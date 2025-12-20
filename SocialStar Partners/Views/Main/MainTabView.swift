@@ -11,35 +11,28 @@ struct MainTabView: View {
         TabView(selection: $selectedTab) {
             LinksView()
                 .tabItem {
-                    Image("link")
-                        .renderingMode(.template)
-                    Text("Links")
-                        .font(.system(size: 11, weight: .bold))
+                    Label("Links", image: "link")
                 }
                 .tag(0)
             
             EarningsView()
-                .environmentObject(dashboardViewModel) // Pass the shared view model
+                .environmentObject(dashboardViewModel)
                 .tabItem {
-                    Image("banknote")
-                        .renderingMode(.template)
-                    Text("Earnings")
-                        .font(.system(size: 11, weight: .bold))
+                    Label("Earnings", image: "banknote")
                 }
                 .tag(1)
-                .badge(dashboardViewModel.affiliateData?.balance ?? 0 > 0 ? "1" : nil) // iOS 15+ badge
+                .badge(dashboardViewModel.affiliateData?.balance ?? 0 > 0 ? "1" : nil)
             
             SettingsView()
                 .tabItem {
-                    Image("settings-2")
-                        .renderingMode(.template)
-                    Text("Settings")
-                        .font(.system(size: 11, weight: .bold))
+                    Label("Settings", image: "settings-2")
                 }
                 .tag(2)
         }
         .accentColor(.primary)
         .onAppear {
+            configureTabBarAppearance()
+            
             // Analytics: Track app session start
             Analytics.shared.track(
                 event: "app_session_started",
@@ -50,57 +43,15 @@ struct MainTabView: View {
                 ]
             )
             
-            // Initialize tab session tracking
             tabSessionTimes[selectedTab] = Date()
-            
-            // Load data when the tab view appears
             dashboardViewModel.loadData()
-            
-            // Modern tab bar appearance
-            let appearance = UITabBarAppearance()
-            appearance.configureWithDefaultBackground()
-            appearance.backgroundColor = UIColor.systemBackground
-            
-            // Keep the subtle top border for definition
-            appearance.shadowColor = UIColor.separator.withAlphaComponent(0.3)
-            
-            // Style selected state
-            appearance.stackedLayoutAppearance.selected.iconColor = UIColor.label
-            appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
-                .foregroundColor: UIColor.label,
-                .font: UIFont.systemFont(ofSize: 11, weight: .bold)
-            ]
-            
-            // Style unselected state
-            appearance.stackedLayoutAppearance.normal.iconColor = UIColor.secondaryLabel
-            appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
-                .foregroundColor: UIColor.secondaryLabel,
-                .font: UIFont.systemFont(ofSize: 11, weight: .bold)
-            ]
-            
-            UITabBar.appearance().standardAppearance = appearance
-            UITabBar.appearance().scrollEdgeAppearance = appearance
-            
-            // Customize badge appearance
-            appearance.stackedLayoutAppearance.normal.badgeBackgroundColor = UIColor.red
-            appearance.stackedLayoutAppearance.selected.badgeBackgroundColor = UIColor.red
-            appearance.stackedLayoutAppearance.normal.badgeTextAttributes = [
-                .font: UIFont.systemFont(ofSize: 10, weight: .bold),
-                .foregroundColor: UIColor.white
-            ]
-            appearance.stackedLayoutAppearance.selected.badgeTextAttributes = [
-                .font: UIFont.systemFont(ofSize: 10, weight: .bold),
-                .foregroundColor: UIColor.white
-            ]
         }
         .onChange(of: selectedTab) { newTab in
             let now = Date()
             
-            // Calculate time spent on previous tab
             if let previousTabStartTime = tabSessionTimes[previousTab] {
                 let timeSpent = now.timeIntervalSince(previousTabStartTime)
                 
-                // Analytics: Track time spent on previous tab
                 Analytics.shared.track(
                     event: "tab_time_spent",
                     properties: [
@@ -112,7 +63,6 @@ struct MainTabView: View {
                 )
             }
             
-            // Analytics: Track tab switch
             Analytics.shared.track(
                 event: "tab_switched",
                 properties: [
@@ -124,7 +74,6 @@ struct MainTabView: View {
                 ]
             )
             
-            // Track screen view for the new tab
             Analytics.shared.trackScreen(
                 name: getTabName(for: newTab),
                 properties: [
@@ -134,12 +83,10 @@ struct MainTabView: View {
                 ]
             )
             
-            // Update tracking variables
             previousTab = selectedTab
             tabSessionTimes[newTab] = now
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            // Analytics: Track app return from background
             Analytics.shared.track(
                 event: "app_returned_from_background",
                 properties: [
@@ -148,17 +95,14 @@ struct MainTabView: View {
                 ]
             )
             
-            // Reset tab session time for current tab
             tabSessionTimes[selectedTab] = Date()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
             let now = Date()
             
-            // Calculate time spent on current tab before backgrounding
             if let currentTabStartTime = tabSessionTimes[selectedTab] {
                 let timeSpent = now.timeIntervalSince(currentTabStartTime)
                 
-                // Analytics: Track time spent before backgrounding
                 Analytics.shared.track(
                     event: "app_backgrounded",
                     properties: [
@@ -170,9 +114,8 @@ struct MainTabView: View {
             }
         }
         .onChange(of: dashboardViewModel.affiliateData?.balance) { newBalance in
-            // Analytics: Track balance changes that affect badge
             let hasBalance = (newBalance ?? 0) > 0
-            let previouslyHadBalance = tabSessionTimes.isEmpty ? false : true // Simplified check
+            let previouslyHadBalance = tabSessionTimes.isEmpty ? false : true
             
             if hasBalance != previouslyHadBalance {
                 Analytics.shared.track(
@@ -188,16 +131,58 @@ struct MainTabView: View {
         }
     }
     
+    private func configureTabBarAppearance() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithDefaultBackground()
+        
+        // Embrace the Liquid Glass design with subtle customization
+        appearance.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.8)
+        appearance.shadowColor = UIColor.separator.withAlphaComponent(0.2)
+        
+        // Selected state - keep icons/text bold for better visibility
+        appearance.stackedLayoutAppearance.selected.iconColor = UIColor.label
+        appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
+            .foregroundColor: UIColor.label,
+            .font: UIFont.systemFont(ofSize: 11, weight: .bold)
+        ]
+        
+        // Unselected state
+        appearance.stackedLayoutAppearance.normal.iconColor = UIColor.secondaryLabel
+        appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor.secondaryLabel,
+            .font: UIFont.systemFont(ofSize: 11, weight: .medium)
+        ]
+        
+        // Badge styling
+        appearance.stackedLayoutAppearance.normal.badgeBackgroundColor = UIColor.systemRed
+        appearance.stackedLayoutAppearance.selected.badgeBackgroundColor = UIColor.systemRed
+        appearance.stackedLayoutAppearance.normal.badgeTextAttributes = [
+            .font: UIFont.systemFont(ofSize: 10, weight: .bold),
+            .foregroundColor: UIColor.white
+        ]
+        appearance.stackedLayoutAppearance.selected.badgeTextAttributes = [
+            .font: UIFont.systemFont(ofSize: 10, weight: .bold),
+            .foregroundColor: UIColor.white
+        ]
+        
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
+    
     private func getTabName(for index: Int) -> String {
         switch index {
-        case 0:
-            return "links"
-        case 1:
-            return "earnings"
-        case 2:
-            return "settings"
-        default:
-            return "unknown"
+        case 0: return "links"
+        case 1: return "earnings"
+        case 2: return "settings"
+        default: return "unknown"
         }
+    }
+}
+
+// Helper extension for conditional view modifiers
+extension View {
+    @ViewBuilder
+    func apply<Content: View>(@ViewBuilder _ transform: (Self) -> Content) -> some View {
+        transform(self)
     }
 }
