@@ -165,6 +165,10 @@ struct MainTabView: View {
             .foregroundColor: UIColor.white
         ]
         
+        // Adjust badge position
+        appearance.stackedLayoutAppearance.normal.badgePositionAdjustment = UIOffset(horizontal: 4, vertical: 1)
+        appearance.stackedLayoutAppearance.selected.badgePositionAdjustment = UIOffset(horizontal: 4, vertical: 1)
+        
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
     }
