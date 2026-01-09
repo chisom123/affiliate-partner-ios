@@ -18,16 +18,23 @@ struct MainTabView: View {
             EarningsView()
                 .environmentObject(dashboardViewModel)
                 .tabItem {
-                    Label("Earnings", image: "banknote")
+                    Label("Earnings", image: "wallet")
                 }
                 .tag(1)
                 .badge(dashboardViewModel.affiliateData?.balance ?? 0 > 0 ? "1" : nil)
+            
+            // NEW: Recruit View
+            RecruitView()
+                .tabItem {
+                    Label("Recruits", image: "users-round")
+                }
+                .tag(2)
             
             SettingsView()
                 .tabItem {
                     Label("Settings", image: "settings-2")
                 }
-                .tag(2)
+                .tag(3)
         }
         .accentColor(.primary)
         .onAppear {
@@ -177,7 +184,8 @@ struct MainTabView: View {
         switch index {
         case 0: return "links"
         case 1: return "earnings"
-        case 2: return "settings"
+        case 2: return "recruit" // Updated
+        case 3: return "settings" // Updated
         default: return "unknown"
         }
     }

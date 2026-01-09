@@ -484,9 +484,7 @@ struct UseLinkInstructionsView: View {
     
     private var calculatorContent: some View {
         VStack(spacing: 18) {
-            if photoIsUploaded {
-                calculatorSlider
-            }
+            calculatorSlider
             ratingsRow
             earningsRow
         }
@@ -575,16 +573,13 @@ struct UseLinkInstructionsView: View {
                     // Step 1: Upload Photo
                     uploadPhotoStepView
                     
-                    // Step 2: See Examples
-                    seeExamplesStepView
-                    
-                    // Step 3: Copy Link
+                    // Step 2: Copy Link
                     copyLinkStepView
                     
-                    // Step 4: Add to Story
+                    // Step 3: Add to Story
                     addToStoryStepView
                     
-                    // Step 5: Start Earning
+                    // Step 4: Start Earning
                     startEarningStepView
                 }
                 .padding()
@@ -740,56 +735,16 @@ struct UseLinkInstructionsView: View {
         .cornerRadius(8)
     }
     
-    private var seeExamplesStepView: some View {
+    private var copyLinkStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
                 Text("2")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(photoIsUploaded ? Color.green : Color.gray)
-                
-                Text("Check out Examples")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(photoIsUploaded ? .primary : .gray)
-            }
-            
-            Text("Check out example stories")
-                .font(.system(size: 16))
-                .foregroundColor(.gray)
-            
-            Button(action: {
-                Analytics.shared.trackTap(
-                    elementId: "see_examples_button",
-                    screenName: "link_instructions",
-                    properties: ["link_id": link.id]
-                )
-                showExamples = true
-            }) {
-                Text("View Examples")
-                    .font(.system(size: 16, weight: .bold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(photoIsUploaded ? Color.blue : Color.gray.opacity(0.4))
-                    .foregroundColor(photoIsUploaded ? .white : Color.gray.opacity(0.7))
-                    .cornerRadius(8)
-            }
-            .disabled(!photoIsUploaded)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(8)
-    }
-    
-    private var copyLinkStepView: some View {
-        VStack(alignment: .leading, spacing: 15) {
-            HStack(alignment: .center) {
-                Text("3")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(photoIsUploaded ? Color.green : Color.gray)
+                    .foregroundColor(Color.green)
                 
                 Text("Copy Link")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(photoIsUploaded ? .primary : .gray)
+                    .foregroundColor(.primary)
             }
             
             Text(photoIsUploaded ? "Copy your unique rating link" : "Upload a photo first to unlock this step")
@@ -831,70 +786,67 @@ struct UseLinkInstructionsView: View {
     private var addToStoryStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
-                Text("4")
+                Text("3")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(photoIsUploaded ? Color.green : Color.gray)
+                    .foregroundColor(Color.green)
                 
                 Text("Add Link to Story")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(photoIsUploaded ? .primary : .gray)
+                    .foregroundColor(.primary)
             }
             
             Text("Add the link to your Instagram story when sharing your photo")
                 .font(.system(size: 16))
                 .foregroundColor(.gray)
                 .lineSpacing(2.5)
-                .opacity(photoIsUploaded ? 1.0 : 0.6)
+                .opacity(1.0)
             
-            HStack(alignment: .center, spacing: 10) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 16))
-                    .foregroundColor(.orange)
-                
-                Text("Make sure the link on your story says rate!")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.primary)
+            Button(action: {
+                Analytics.shared.trackTap(
+                    elementId: "see_examples_button",
+                    screenName: "link_instructions",
+                    properties: ["link_id": link.id]
+                )
+                showExamples = true
+            }) {
+                Text("See Examples")
+                    .font(.system(size: 16, weight: .bold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.orange.opacity(0.1))
-            .cornerRadius(6)
-            .opacity(photoIsUploaded ? 1.0 : 0.5)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(Color.gray.opacity(0.1))
         .cornerRadius(8)
-        .opacity(photoIsUploaded ? 1.0 : 0.6)
     }
     
     private var startEarningStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
-                Text("5")
+                Text("4")
                     .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(photoIsUploaded ? Color.green : Color.gray)
+                    .foregroundColor(Color.green)
                 
                 Text("Start Earning")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(photoIsUploaded ? .primary : .gray)
+                    .foregroundColor(.primary)
             }
             
             Text("Earn \(pricingCalculator.formatEarnings(pricingCalculator.getEarningsPerRating())) for every rating your story receives")
                 .font(.system(size: 16))
                 .foregroundColor(.gray)
                 .lineSpacing(2.5)
-                .opacity(photoIsUploaded ? 1.0 : 0.6)
             
             calculatorSection
-                .opacity(photoIsUploaded ? 1.0 : 0.5)
-                .allowsHitTesting(photoIsUploaded)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(Color.gray.opacity(0.1))
         .cornerRadius(8)
-        .opacity(photoIsUploaded ? 1.0 : 0.6)
     }
     
     private func copyLink() {
