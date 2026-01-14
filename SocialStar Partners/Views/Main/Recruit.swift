@@ -169,7 +169,7 @@ struct RecruitView: View {
                 id: 4,
                 icon: "dollarsign",
                 title: "You Earn",
-                description: "You earn $0.05 for every rating they get"
+                description: "You earn $0.10 for every rating they get"
             )
         ]
     }
