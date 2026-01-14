@@ -140,10 +140,10 @@ struct WithdrawalCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("$\(withdrawal.amount, specifier: "%.2f")")
+                    Text(withdrawal.formattedAmount)
                         .font(.system(size: 18, weight: .bold))
                     
-                    Text(withdrawal.requestedAt, style: .date)
+                    Text(withdrawal.formattedDate)
                         .font(.system(size: 14))
                         .foregroundColor(.gray)
                 }
@@ -162,7 +162,7 @@ struct WithdrawalCard: View {
             }
             
             // Bank account info (using encrypted data safely)
-            Text(getBankAccountDisplay(for: withdrawal))
+            Text(withdrawal.paymentInfo)
                 .foregroundColor(.gray)
             
             // Rejection reason if rejected
@@ -176,12 +176,6 @@ struct WithdrawalCard: View {
         .padding()
         .background(Color.gray.opacity(0.05))
         .cornerRadius(8)
-    }
-    
-    // Helper to safely get bank account display info
-    private func getBankAccountDisplay(for withdrawal: Withdrawal) -> String {
-        // Use the safe maskedBankInfo property from Withdrawal
-        return withdrawal.maskedBankInfo
     }
     
     private func statusColor(for status: WithdrawalStatus) -> Color {

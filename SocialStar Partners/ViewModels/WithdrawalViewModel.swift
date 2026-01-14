@@ -66,15 +66,15 @@ class WithdrawalViewModel: ObservableObject {
             }
     }
     
-    // MARK: - Submit Withdrawal Request (Fixed - No Auto-Clear)
-    func submitWithdrawal(amount: Double, bankAccount: BankAccount) async {
+    // MARK: - Submit PayPal Withdrawal Request
+    func submitPayPalWithdrawal(amount: Double, paypalEmail: String) async {
         guard let user = Auth.auth().currentUser else {
             await MainActor.run {
                 errorMessage = "User not authenticated"
                 
                 // Analytics: Track authentication error
                 Analytics.shared.trackError(
-                    message: "Withdrawal submission failed: User not authenticated"
+                    message: "PayPal withdrawal submission failed: User not authenticated"
                 )
             }
             return
@@ -86,39 +86,65 @@ class WithdrawalViewModel: ObservableObject {
             successMessage = ""
         }
         
-        // Analytics: Track withdrawal submission attempt
+        // Validate PayPal email
+        if !isValidEmail(paypalEmail) {
+            await MainActor.run {
+                isLoading = false
+                errorMessage = "Please enter a valid PayPal email address"
+                
+                Analytics.shared.track(
+                    event: "paypal_withdrawal_validation_failed",
+                    properties: [
+                        "error": "invalid_email"
+                    ]
+                )
+            }
+            return
+        }
+        
+        // Validate minimum amount
+        if amount < 5.0 {
+            await MainActor.run {
+                isLoading = false
+                errorMessage = "Minimum withdrawal amount is $5.00"
+                
+                Analytics.shared.track(
+                    event: "paypal_withdrawal_validation_failed",
+                    properties: [
+                        "error": "minimum_amount",
+                        "amount": amount
+                    ]
+                )
+            }
+            return
+        }
+        
+        // Analytics: Track PayPal withdrawal submission attempt
         Analytics.shared.track(
-            event: "withdrawal_submission_started",
+            event: "paypal_withdrawal_submission_started",
             properties: [
                 "amount": amount,
-                "bank_name": bankAccount.bankName,
-                "account_type": bankAccount.accountType
+                "has_email": !paypalEmail.isEmpty
             ]
         )
         
         let db = Firestore.firestore()
         
         do {
-            // Encrypt the bank account before storing
-            let encryptedBankAccount = try bankAccount.encrypt()
-            print("Bank account encrypted successfully")
-            
-            // Create withdrawal document with encrypted bank account
-            let withdrawal = Withdrawal(
-                id: "", // Will be set by Firestore
-                userId: user.uid,
-                amount: amount,
-                status: .pending,
-                encryptedBankAccount: encryptedBankAccount, // Now using encrypted data
-                requestedAt: Date(),
-                processedAt: nil,
-                rejectionReason: nil,
-                batchId: nil
-            )
+            // Create withdrawal document with PayPal details
+            // Only include required fields - don't include nil optional fields
+            var withdrawalData: [String: Any] = [
+                "userId": user.uid,
+                "amount": amount,
+                "status": "pending",
+                "paymentMethod": "paypal",
+                "paypalEmail": paypalEmail,
+                "requestedAt": Timestamp(date: Date())
+            ]
             
             // Add to Firestore
-            try await db.collection("withdrawals").addDocument(data: withdrawal.toFirestoreData())
-            print("Withdrawal saved to Firestore with encrypted bank details")
+            try await db.collection("withdrawals").addDocument(data: withdrawalData)
+            print("PayPal withdrawal saved to Firestore")
             
             // Update user's balance (deduct immediately)
             try await db.collection("affiliates").document(user.uid).updateData([
@@ -133,31 +159,22 @@ class WithdrawalViewModel: ObservableObject {
                 Analytics.shared.track(
                     event: "withdrawal_submitted_successfully",
                     properties: [
-                        "amount": amount,
-                        "bank_name": bankAccount.bankName,
-                        "account_type": bankAccount.accountType
+                        "amount": amount
                     ]
                 )
-                
-                // REMOVED: Auto-clearing success message - let the UI handle navigation timing
             }
             
         } catch {
             await MainActor.run {
                 self.isLoading = false
-                if error is EncryptionError {
-                    self.errorMessage = "Security error: \(error.localizedDescription)"
-                } else {
-                    self.errorMessage = "Error submitting withdrawal: \(error.localizedDescription)"
-                }
+                self.errorMessage = "Error submitting PayPal withdrawal: \(error.localizedDescription)"
                 
-                // Analytics: Track withdrawal submission failure
+                // Analytics: Track PayPal withdrawal submission failure
                 Analytics.shared.track(
-                    event: "withdrawal_submission_failed",
+                    event: "paypal_withdrawal_submission_failed",
                     properties: [
                         AnalyticsProperty.errorMessage: error.localizedDescription,
-                        "amount": amount,
-                        "error_type": error is EncryptionError ? "encryption" : "firestore"
+                        "amount": amount
                     ]
                 )
             }
@@ -173,170 +190,16 @@ class WithdrawalViewModel: ObservableObject {
         return pendingAmount
     }
     
-    // MARK: - Validate bank account
-    func validateBankAccount(_ bankAccount: BankAccount) -> String? {
-        // Account holder name validation
-        if bankAccount.accountHolderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            // Analytics: Track validation failure
-            Analytics.shared.track(
-                event: "bank_validation_failed",
-                properties: [
-                    "field": "account_holder_name",
-                    "error": "empty"
-                ]
-            )
-            return "Account holder name is required"
-        }
-        
-        // Bank name validation
-        if bankAccount.bankName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            Analytics.shared.track(
-                event: "bank_validation_failed",
-                properties: [
-                    "field": "bank_name",
-                    "error": "empty"
-                ]
-            )
-            return "Bank name is required"
-        }
-        
-        // Account number validation (US format)
-        let accountNumber = bankAccount.accountNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-        if accountNumber.isEmpty {
-            Analytics.shared.track(
-                event: "bank_validation_failed",
-                properties: [
-                    "field": "account_number",
-                    "error": "empty"
-                ]
-            )
-            return "Account number is required"
-        }
-        
-        if accountNumber.count < 8 || accountNumber.count > 17 {
-            Analytics.shared.track(
-                event: "bank_validation_failed",
-                properties: [
-                    "field": "account_number",
-                    "error": "invalid_length",
-                    "length": accountNumber.count
-                ]
-            )
-            return "Account number must be 8-17 digits"
-        }
-        
-        if !accountNumber.allSatisfy({ $0.isNumber }) {
-            Analytics.shared.track(
-                event: "bank_validation_failed",
-                properties: [
-                    "field": "account_number",
-                    "error": "non_numeric"
-                ]
-            )
-            return "Account number can only contain numbers"
-        }
-        
-        // Routing number validation (US format)
-        let routingNumber = bankAccount.routingNumber.trimmingCharacters(in: .whitespacesAndNewlines)
-        if routingNumber.isEmpty {
-            Analytics.shared.track(
-                event: "bank_validation_failed",
-                properties: [
-                    "field": "routing_number",
-                    "error": "empty"
-                ]
-            )
-            return "Routing number is required"
-        }
-        
-        if routingNumber.count != 9 {
-            Analytics.shared.track(
-                event: "bank_validation_failed",
-                properties: [
-                    "field": "routing_number",
-                    "error": "invalid_length",
-                    "length": routingNumber.count
-                ]
-            )
-            return "Routing number must be exactly 9 digits"
-        }
-        
-        if !routingNumber.allSatisfy({ $0.isNumber }) {
-            Analytics.shared.track(
-                event: "bank_validation_failed",
-                properties: [
-                    "field": "routing_number",
-                    "error": "non_numeric"
-                ]
-            )
-            return "Routing number can only contain numbers"
-        }
-        
-        // Analytics: Track successful validation
-        Analytics.shared.track(
-            event: "bank_validation_passed",
-            properties: [
-                "bank_name": bankAccount.bankName,
-                "account_type": bankAccount.accountType
-            ]
-        )
-        
-        return nil // No validation errors
+    // MARK: - Validate PayPal Email
+    private func isValidEmail(_ email: String) -> Bool {
+        let emailRegex = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}"
+        let emailPredicate = NSPredicate(format:"SELF MATCHES %@", emailRegex)
+        return emailPredicate.evaluate(with: email.trimmingCharacters(in: .whitespaces))
     }
-    
-    // MARK: - Helper to get decrypted bank account for display
-    func getDecryptedBankAccount(for withdrawal: Withdrawal) -> BankAccount? {
-        do {
-            return try withdrawal.getBankAccount()
-        } catch {
-            print("Failed to decrypt bank account for withdrawal \(withdrawal.id): \(error)")
-            
-            // Analytics: Track decryption error
-            Analytics.shared.trackError(
-                message: "Bank account decryption failed: \(error.localizedDescription)",
-                properties: [
-                    "withdrawal_id": withdrawal.id
-                ]
-            )
-            
-            return nil
-        }
-    }
-    
-    // MARK: - Test Method (for development)
-    func testEncryptionInViewModel() {
-        print("Testing encryption in ViewModel...")
-        
-        let testBank = BankAccount(
-            accountHolderName: "Test User",
-            bankName: "Test Bank",
-            accountNumber: "1234567890",
-            routingNumber: "987654321",
-            accountType: "checking",
-            addressLine1: "123 Test St",
-            city: "Test City",
-            state: "NY",
-            zipCode: "12345"
-        )
-        
-        do {
-            let encrypted = try testBank.encrypt()
-            print("ViewModel encryption test successful")
-            
-            let decrypted = try BankAccount.decrypt(from: encrypted)
-            print("ViewModel decryption test successful: \(decrypted.accountHolderName)")
-            
-            // Analytics: Track successful encryption test
-            Analytics.shared.track(
-                event: "encryption_test_successful"
-            )
-        } catch {
-            print("ViewModel encryption test failed: \(error)")
-            
-            // Analytics: Track encryption test failure
-            Analytics.shared.trackError(
-                message: "Encryption test failed: \(error.localizedDescription)"
-            )
-        }
+
+    // MARK: - Get Withdrawal Details for Display (Simplified)
+    func getWithdrawalDetails(for withdrawal: Withdrawal) -> (method: String, details: String) {
+        // paypalEmail is not optional in the updated model, so no need for optional binding
+        return ("PayPal", "Email: \(withdrawal.paypalEmail)")
     }
 }
