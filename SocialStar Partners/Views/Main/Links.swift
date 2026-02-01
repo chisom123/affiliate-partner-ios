@@ -462,15 +462,24 @@ struct UseLinkInstructionsView: View {
     @State private var showExamples = false
     @StateObject private var pricingCalculator = AffiliatePricingCalculator.shared
     
-    // NEW: Photo upload states
+    // Photo upload states
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var uploadedPhoto: UIImage?
     @State private var isUploadingPhoto = false
     @State private var hasUploadedPhoto = false
     
+    // NEW: Theme selection states
+    @State private var showThemeSelection = false
+    @State private var selectedTheme: String?
+    
     // Computed property to check if photo is available
     private var photoIsUploaded: Bool {
         hasUploadedPhoto || link.photoUrl != nil
+    }
+    
+    // NEW: Computed property to check if theme is selected
+    private var themeIsSelected: Bool {
+        selectedTheme != nil || link.theme != nil
     }
     
     private var calculatorSection: some View {
@@ -570,16 +579,20 @@ struct UseLinkInstructionsView: View {
                         .font(.system(size: 24, weight: .bold))
                         .padding(.bottom)
                     
+                    
                     // Step 1: Upload Photo
                     uploadPhotoStepView
                     
-                    // Step 2: Copy Link
+                    // NEW Step 2: Select Theme
+                    selectThemeStepView
+                    
+                    // Step 3: Copy Link
                     copyLinkStepView
                     
-                    // Step 3: Add to Story
+                    // Step 4: Add to Story
                     addToStoryStepView
                     
-                    // Step 4: Start Earning
+                    // Step 5: Start Earning
                     startEarningStepView
                 }
                 .padding()
@@ -597,7 +610,8 @@ struct UseLinkInstructionsView: View {
                                 "final_calculator_ratings": Int(calculatorRatings),
                                 "final_calculator_earnings": calculatorRatings * pricingCalculator.getEarningsPerRating(),
                                 "earnings_per_rating": pricingCalculator.getEarningsPerRating(),
-                                "has_uploaded_photo": link.photoUrl != nil
+                                "has_uploaded_photo": link.photoUrl != nil,
+                                "has_selected_theme": themeIsSelected
                             ]
                         )
                         dismiss()
@@ -610,6 +624,15 @@ struct UseLinkInstructionsView: View {
         .sheet(isPresented: $showExamples) {
             ExamplesView()
         }
+        .sheet(isPresented: $showThemeSelection) {
+            ThemeSelectionView(selectedTheme: $selectedTheme)
+                .onDisappear {
+                    // Save theme to Firestore when selection is made
+                    if let theme = selectedTheme {
+                        viewModel.updateLinkTheme(link: link, theme: theme)
+                    }
+                }
+        }
         .onAppear {
             if !hasTrackedView {
                 Analytics.shared.trackScreen(
@@ -619,15 +642,20 @@ struct UseLinkInstructionsView: View {
                         "link_earnings": link.earnings,
                         "link_rating_count": link.ratingCount,
                         "link_is_active": link.isActive,
-                        "has_photo": link.photoUrl != nil
+                        "has_photo": link.photoUrl != nil,
+                        "has_theme": link.theme != nil
                     ]
                 )
                 hasTrackedView = true
             }
             
-            // Set hasUploadedPhoto if photo already exists
+            // Set initial states from existing link data
             if link.photoUrl != nil {
                 hasUploadedPhoto = true
+            }
+            
+            if let theme = link.theme {
+                selectedTheme = theme
             }
         }
         .onChange(of: selectedPhotoItem) { newItem in
@@ -644,13 +672,12 @@ struct UseLinkInstructionsView: View {
         }
         .onChange(of: viewModel.isUploadingPhoto) { uploading in
             if !uploading && uploadedPhoto != nil {
-                // Photo upload completed
                 hasUploadedPhoto = true
             }
         }
     }
     
-    // NEW: Upload Photo Step
+    // Update Upload Photo Step
     private var uploadPhotoStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
@@ -735,42 +762,79 @@ struct UseLinkInstructionsView: View {
         .cornerRadius(8)
     }
     
-    private var copyLinkStepView: some View {
+    // Step 2: Select Theme
+    private var selectThemeStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
                 Text("2")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color.green)
                 
-                Text("Copy Link")
+                Text("Pick a Theme")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.primary)
             }
             
-            Text(photoIsUploaded ? "Copy your unique rating link" : "Upload a photo first to unlock this step")
+            Text(photoIsUploaded ? "Give your photo a theme" : "Upload a photo first to unlock this step")
                 .font(.system(size: 16))
                 .foregroundColor(.gray)
             
             VStack(spacing: 12) {
-                Text("https://\(link.url)")
-                    .frame(maxWidth: .infinity)
-                    .padding(5)
-                    .padding(.vertical, 10)
+                // Show selected theme if available
+                if let theme = selectedTheme ?? link.theme {
+                    HStack {
+                        Image(systemName: "tag.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.blue)
+                        
+                        Text(theme)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.primary)
+                        
+                        Spacer()
+                        
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundColor(.green)
+                    }
+                    .padding()
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
+                } else {
+                    HStack {
+                        Image(systemName: "tag")
+                            .font(.system(size: 16))
+                            .foregroundColor(.gray)
+                        
+                        Text("No theme selected")
+                            .font(.system(size: 16))
+                            .foregroundColor(.gray)
+                        
+                        Spacer()
+                    }
+                    .padding()
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(8)
-                    .opacity(photoIsUploaded ? 1.0 : 0.5)
+                }
                 
-                Button(action: copyLink) {
-                    HStack(spacing: 8) {
-                        Text(showCopiedMessage ? "Link Copied" : (photoIsUploaded ? "Copy Link" : "Upload Photo First"))
+                // Select/Change Theme Button
+                Button(action: {
+                    Analytics.shared.trackTap(
+                        elementId: themeIsSelected ? "change_theme_button" : "select_theme_button",
+                        screenName: "link_instructions",
+                        properties: [
+                            "link_id": link.id,
+                            "current_theme": selectedTheme ?? link.theme ?? "none"
+                        ]
+                    )
+                    showThemeSelection = true
+                }) {
+                    HStack {
+                        Text(themeIsSelected ? "Change Theme" : (photoIsUploaded ? "Select Theme" : "Upload Photo First"))
                             .font(.system(size: 16, weight: .bold))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(
-                        showCopiedMessage ? Color.green :
-                        (photoIsUploaded ? Color.blue : Color.gray.opacity(0.4))
-                    )
+                    .background(photoIsUploaded ? Color.blue : Color.gray.opacity(0.4))
                     .foregroundColor(photoIsUploaded ? .white : Color.gray.opacity(0.7))
                     .cornerRadius(8)
                 }
@@ -781,12 +845,62 @@ struct UseLinkInstructionsView: View {
         .padding()
         .background(Color.gray.opacity(0.1))
         .cornerRadius(8)
+        .opacity(photoIsUploaded ? 1.0 : 0.5)
+    }
+    
+    private var copyLinkStepView: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .center) {
+                Text("3")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(Color.green)
+                
+                Text("Copy Link")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.primary)
+            }
+            
+            Text(themeIsSelected ? "Copy your unique rating link" : "Select a theme first to unlock this step")
+                .font(.system(size: 16))
+                .foregroundColor(.gray)
+            
+            VStack(spacing: 12) {
+                Text("https://\(link.url)")
+                    .frame(maxWidth: .infinity)
+                    .padding(5)
+                    .padding(.vertical, 10)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(8)
+                    .opacity(themeIsSelected ? 1.0 : 0.5)
+                
+                Button(action: copyLink) {
+                    HStack(spacing: 8) {
+                        Text(showCopiedMessage ? "Link Copied" : (themeIsSelected ? "Copy Link" : "Select Theme First"))
+                            .font(.system(size: 16, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        showCopiedMessage ? Color.green :
+                        (themeIsSelected ? Color.blue : Color.gray.opacity(0.4))
+                    )
+                    .foregroundColor(themeIsSelected ? .white : Color.gray.opacity(0.7))
+                    .cornerRadius(8)
+                }
+                .disabled(!themeIsSelected)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(8)
+        .opacity(themeIsSelected ? 1.0 : 0.5)
     }
     
     private var addToStoryStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
-                Text("3")
+                Text("4")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color.green)
                 
@@ -827,7 +941,7 @@ struct UseLinkInstructionsView: View {
     private var startEarningStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
-                Text("4")
+                Text("5")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundColor(Color.green)
                 
@@ -851,9 +965,9 @@ struct UseLinkInstructionsView: View {
     
     private func copyLink() {
         // Don't copy if no photo uploaded
-        guard photoIsUploaded else {
+        guard themeIsSelected else {
             Analytics.shared.track(
-                event: "copy_link_blocked_no_photo",
+                event: "copy_link_blocked_no_theme",
                 properties: [
                     AnalyticsProperty.screenName: "link_instructions",
                     "link_id": link.id

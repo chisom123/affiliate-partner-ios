@@ -177,6 +177,79 @@ class DashboardViewModel: ObservableObject {
         }
     }
     
+    // Add this to DashboardViewModel
+    func updateLinkTheme(link: RatingLink, theme: String) {
+        guard let user = Auth.auth().currentUser else { return }
+        
+        Analytics.shared.track(
+            event: "link_theme_update_started",
+            properties: [
+                "link_id": link.linkId,
+                "new_theme": theme
+            ]
+        )
+        
+        let db = Firestore.firestore()
+        
+        db.collection("rating_links")
+            .whereField("linkId", isEqualTo: link.linkId)
+            .whereField("affiliateId", isEqualTo: user.uid)
+            .getDocuments { [weak self] snapshot, error in
+                if let error = error {
+                    DispatchQueue.main.async {
+                        self?.errorMessage = "Error updating theme: \(error.localizedDescription)"
+                        
+                        Analytics.shared.trackError(
+                            message: "Link theme update failed: \(error.localizedDescription)",
+                            properties: [
+                                "link_id": link.linkId
+                            ]
+                        )
+                    }
+                    return
+                }
+                
+                guard let document = snapshot?.documents.first else {
+                    DispatchQueue.main.async {
+                        self?.errorMessage = "Link document not found"
+                        
+                        Analytics.shared.trackError(
+                            message: "Link document not found for theme update",
+                            properties: [
+                                "link_id": link.linkId
+                            ]
+                        )
+                    }
+                    return
+                }
+                
+                document.reference.updateData([
+                    "theme": theme
+                ]) { error in
+                    if let error = error {
+                        DispatchQueue.main.async {
+                            self?.errorMessage = "Error updating theme: \(error.localizedDescription)"
+                            
+                            Analytics.shared.trackError(
+                                message: "Firestore theme update failed: \(error.localizedDescription)",
+                                properties: [
+                                    "link_id": link.linkId
+                                ]
+                            )
+                        }
+                    } else {
+                        Analytics.shared.track(
+                            event: "link_theme_updated_successfully",
+                            properties: [
+                                "link_id": link.linkId,
+                                "theme": theme
+                            ]
+                        )
+                    }
+                }
+            }
+    }
+    
     // NEW: Upload photo for a specific link
     func uploadLinkPhoto(_ image: UIImage, for link: RatingLink) {
         guard let userId = Auth.auth().currentUser?.uid,

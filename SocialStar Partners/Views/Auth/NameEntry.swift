@@ -15,7 +15,7 @@ struct NameView: View {
     @State private var lastName = ""
     @State private var isLoading = false
     @State private var errorMessage = ""
-    @State private var navigateToDashboard = false
+    @State private var navigateToProfilePicture = false
     
     var body: some View {
         VStack(spacing: 30) {
@@ -57,30 +57,22 @@ struct NameView: View {
                     }
             }
             
-            // Fixed container width for loading state
             if isLoading {
-                HStack {
-                    Spacer()
-                    ProgressView()
-                        .scaleEffect(1.2)
-                    Spacer()
-                }
-                .frame(height: 50) // Same height as the button to maintain layout
-                .padding(.horizontal)
+                ProgressView()
             } else {
                 Button(action: {
                     // Analytics: Track account creation attempt
                     Analytics.shared.trackTap(
-                        elementId: "create_account_button",
+                        elementId: "continue_to_profile_picture_button",
                         screenName: "name_entry",
                         properties: [
                             "form_valid": !firstName.isEmpty && !lastName.isEmpty
                         ]
                     )
                     
-                    createAccount()
+                    navigateToProfilePicture = true
                 }) {
-                    Text("Create Account")
+                    Text("Continue")
                         .frame(maxWidth: .infinity)
                         .font(.system(size: 18, weight: .bold))
                         .foregroundColor(.white)
@@ -93,12 +85,20 @@ struct NameView: View {
                         )
                         .cornerRadius(8)
                 }
-                .disabled(firstName.isEmpty || lastName.isEmpty || isLoading)
+                .disabled(firstName.isEmpty || lastName.isEmpty)
                 .padding(.horizontal)
             }
             
-            // Hidden Navigation Link to Dashboard
-            NavigationLink(destination: MainTabView(), isActive: $navigateToDashboard) {
+            // Navigation Link to Profile Picture
+            NavigationLink(
+                destination: ProfilePictureView(
+                    email: email,
+                    password: password,
+                    firstName: firstName,
+                    lastName: lastName
+                ),
+                isActive: $navigateToProfilePicture
+            ) {
                 EmptyView()
             }
             .hidden()
@@ -113,69 +113,6 @@ struct NameView: View {
         .onAppear {
             // Analytics: Track name entry screen view
             Analytics.shared.trackScreen(name: "name_entry")
-        }
-    }
-    
-    private func createAccount() {
-        isLoading = true
-        errorMessage = ""
-        
-        // Create Firebase Auth user first
-        Auth.auth().createUser(withEmail: email, password: password) { result, error in
-            if let error = error {
-                errorMessage = error.localizedDescription
-                isLoading = false
-                return
-            }
-            
-            guard let user = result?.user else {
-                errorMessage = "Failed to get user information"
-                isLoading = false
-                return
-            }
-            
-            createFirestoreDocument(for: user)
-        }
-    }
-    
-    private func createFirestoreDocument(for user: User) {
-        let db = Firestore.firestore()
-        let affiliateData: [String: Any] = [
-            "firstName": firstName,
-            "lastName": lastName,
-            "email": email,
-            "profilePictureUrl": NSNull(),
-            "totalEarnings": 0,
-            "totalRatings": 0,
-            "createdAt": Timestamp(),
-            "status": "active",
-            "paymentInfo": NSNull(),
-            "payoutHistory": [],
-            "balance": 0.0,
-            "totalWithdrawn": 0.0,
-            "linkCredits": 0
-        ]
-        
-        db.collection("affiliates").document(user.uid).setData(affiliateData) { error in
-            isLoading = false
-            
-            if let error = error {
-                errorMessage = "Failed to create account: \(error.localizedDescription)"
-                return
-            }
-            
-            // Analytics: Track successful account creation
-            Analytics.shared.track(
-                event: "account_created_successfully",
-                properties: [
-                    AnalyticsProperty.screenName: "name_entry",
-                    "user_id": user.uid
-                ]
-            )
-            
-            // Account created successfully - navigate to dashboard
-            navigateToDashboard = true
-            NotificationCenter.default.post(name: .authStateDidChange, object: nil)
         }
     }
 }
