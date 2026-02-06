@@ -33,11 +33,11 @@ struct LinksView: View {
                             // Centered empty state - only show after initial load
                             VStack(spacing: 16) {
                                 VStack(spacing: 8) {
-                                    Text("No Rating Links Yet")
+                                    Text("No Story Links Yet")
                                         .font(.system(size: 20, weight: .semibold))
                                         .foregroundColor(.primary)
                                     
-                                    Text("Create your first story rating link")
+                                    Text("Create your first story link")
                                         .font(.system(size: 16))
                                         .foregroundColor(.secondary)
                                         .multilineTextAlignment(.center)
@@ -47,13 +47,11 @@ struct LinksView: View {
                                     createLinkWithBlockCheck(source: "empty_state")
                                 }) {
                                     HStack(spacing: 8) {
-                                        Image(systemName: "plus.circle.fill")
-                                            .font(.system(size: 16, weight: .medium))
                                         Text("New Link")
-                                            .font(.system(size: 16, weight: .semibold))
+                                            .font(.system(size: 16, weight: .bold))
                                     }
                                     .foregroundColor(.white)
-                                    .padding(.horizontal, 24)
+                                    .padding(.horizontal, 28)
                                     .padding(.vertical, 12)
                                     .background(canCreateLinks ? Color.blue : Color.gray)
                                     .cornerRadius(200)

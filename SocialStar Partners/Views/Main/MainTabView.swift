@@ -23,18 +23,11 @@ struct MainTabView: View {
                 .tag(1)
                 .badge(dashboardViewModel.affiliateData?.balance ?? 0 > 0 ? "1" : nil)
             
-            // NEW: Recruit View
-            RecruitView()
-                .tabItem {
-                    Label("Recruits", image: "users-round")
-                }
-                .tag(2)
-            
             SettingsView()
                 .tabItem {
                     Label("Settings", image: "settings-2")
                 }
-                .tag(3)
+                .tag(2)
         }
         .accentColor(.primary)
         .onAppear {
