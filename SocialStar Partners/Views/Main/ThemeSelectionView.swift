@@ -157,7 +157,7 @@ struct ThemeSelectionView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
+                    Button("Close") {
                         Analytics.shared.trackTap(
                             elementId: "theme_selection_cancel",
                             screenName: "theme_selection",
@@ -166,6 +166,7 @@ struct ThemeSelectionView: View {
                         dismiss()
                     }
                     .foregroundColor(.black)
+                    .fontWeight(.semibold)
                 }
             }
         }

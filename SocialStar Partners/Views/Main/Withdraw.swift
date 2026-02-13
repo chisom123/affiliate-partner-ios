@@ -257,7 +257,7 @@ struct WithdrawalConfirmationView: View {
                 .padding(.horizontal)
                 
                 // Processing Info
-                Text("Your money will arrive in your PayPal account within 2-5 business days")
+                Text("Your money will arrive in your PayPal account within 1-5 days")
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundColor(.black)
