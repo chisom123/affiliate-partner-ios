@@ -85,7 +85,7 @@ struct WelcomeView: View {
                     }
                     
                     // Hidden Navigation Links
-                    NavigationLink(destination: EmailEntryView(), isActive: $navigateToEmail) {
+                    NavigationLink(destination: ProgramExplainerView(), isActive: $navigateToEmail) {
                         EmptyView()
                     }
                     .hidden()
