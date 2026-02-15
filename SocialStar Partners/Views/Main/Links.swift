@@ -6,14 +6,16 @@ import FirebaseStorage
 struct LinksView: View {
     @StateObject private var viewModel = DashboardViewModel()
     @State private var selectedLinkForInstructions: RatingLink?
-    @State private var showBlockedAlert = false // NEW
+    @State private var showBlockedAlert = false
+    @State private var dailyLinksRemaining: Int? = nil
+    @State private var blockReason: String = ""
     
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
                 ScrollView {
                     VStack(spacing: 20) {
-                        // NEW: Show blocked message if applicable
+                        // Show blocked message if applicable
                         if let affiliateData = viewModel.affiliateData, !affiliateData.canCreateLinks {
                             blockedMessageView
                         }
@@ -126,10 +128,10 @@ struct LinksView: View {
             }
         }
         .navigationViewStyle(StackNavigationViewStyle())
-        .alert("Link Creation Paused", isPresented: $showBlockedAlert) {
+        .alert("Daily Limit Reached", isPresented: $showBlockedAlert) {
             Button("OK", role: .cancel) { }
         } message: {
-            Text("Link creation is currently paused for your account. Please contact support for assistance.")
+            Text(blockReason)
         }
         .onAppear {
             let activeLinks = viewModel.ratingLinks.filter { $0.isActive }
@@ -156,12 +158,12 @@ struct LinksView: View {
         }
     }
     
-    // NEW: Computed property to check if user can create links
+    // Computed property to check if user can create links
     private var canCreateLinks: Bool {
         viewModel.affiliateData?.canCreateLinks ?? false
     }
     
-    // NEW: Blocked message view
+    // Blocked message view
     private var blockedMessageView: some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -185,44 +187,72 @@ struct LinksView: View {
         .cornerRadius(8)
     }
     
-    // NEW: Helper function to handle link creation with block check
+    // Helper function to handle link creation with block check
     private func createLinkWithBlockCheck(source: String) {
         guard canCreateLinks else {
+            blockReason = "Link creation is currently paused for your account. Please contact support for assistance."
             showBlockedAlert = true
             
             Analytics.shared.track(
                 event: "blocked_user_attempted_link_creation",
                 properties: [
                     AnalyticsProperty.screenName: "links",
-                    "creation_source": source
+                    "creation_source": source,
+                    "blocked_reason": "canCreateLinks_false"
                 ]
             )
             return
         }
         
-        Analytics.shared.trackTap(
-            elementId: source == "toolbar" ? "add_link_toolbar_button" : "create_first_link_button",
-            screenName: "links",
-            properties: [
-                "total_links": viewModel.ratingLinks.count,
-                "user_state": viewModel.ratingLinks.isEmpty ? "empty" : "has_links"
-            ]
-        )
-        
-        viewModel.createNewLink { newLink in
-            selectedLinkForInstructions = newLink
+        // Check daily limit before proceeding
+        viewModel.checkDailyLimit { canCreate, remaining in
+            dailyLinksRemaining = remaining
             
-            if let link = newLink {
+            if !canCreate {
+                blockReason = "You've reached your daily limit of 2 links. Try again tomorrow."
+                showBlockedAlert = true
+                
                 Analytics.shared.track(
-                    event: viewModel.ratingLinks.count == 1 ? "first_link_created" : "link_created",
+                    event: "blocked_user_attempted_link_creation",
                     properties: [
                         AnalyticsProperty.screenName: "links",
-                        "link_id": link.id,
-                        "link_title": link.title,
-                        "total_links_after": viewModel.ratingLinks.count,
-                        "creation_source": source
+                        "creation_source": source,
+                        "blocked_reason": "daily_limit_reached",
+                        "remaining": 0
                     ]
                 )
+                return
+            }
+            
+            Analytics.shared.trackTap(
+                elementId: source == "toolbar" ? "add_link_toolbar_button" : "create_first_link_button",
+                screenName: "links",
+                properties: [
+                    "total_links": viewModel.ratingLinks.count,
+                    "user_state": viewModel.ratingLinks.isEmpty ? "empty" : "has_links",
+                    "daily_remaining": remaining
+                ]
+            )
+            
+            viewModel.createNewLink { newLink in
+                selectedLinkForInstructions = newLink
+                
+                if let link = newLink {
+                    // Update remaining count
+                    dailyLinksRemaining = max(0, (dailyLinksRemaining ?? 0) - 1)
+                    
+                    Analytics.shared.track(
+                        event: viewModel.ratingLinks.count == 1 ? "first_link_created" : "link_created",
+                        properties: [
+                            AnalyticsProperty.screenName: "links",
+                            "link_id": link.id,
+                            "link_title": link.title,
+                            "total_links_after": viewModel.ratingLinks.count,
+                            "creation_source": source,
+                            "daily_remaining_after": dailyLinksRemaining ?? 0
+                        ]
+                    )
+                }
             }
         }
     }
@@ -466,7 +496,7 @@ struct UseLinkInstructionsView: View {
     @State private var isUploadingPhoto = false
     @State private var hasUploadedPhoto = false
     
-    // NEW: Theme selection states
+    // Theme selection states
     @State private var showThemeSelection = false
     @State private var selectedTheme: String?
     
@@ -475,7 +505,7 @@ struct UseLinkInstructionsView: View {
         hasUploadedPhoto || link.photoUrl != nil
     }
     
-    // NEW: Computed property to check if theme is selected
+    // Computed property to check if theme is selected
     private var themeIsSelected: Bool {
         selectedTheme != nil || link.theme != nil
     }
@@ -581,7 +611,7 @@ struct UseLinkInstructionsView: View {
                     // Step 1: Upload Photo
                     uploadPhotoStepView
                     
-                    // NEW Step 2: Select Theme
+                    // Step 2: Select Theme
                     selectThemeStepView
                     
                     // Step 3: Copy Link
@@ -675,7 +705,7 @@ struct UseLinkInstructionsView: View {
         }
     }
     
-    // Update Upload Photo Step
+    // Upload Photo Step
     private var uploadPhotoStepView: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(alignment: .center) {
@@ -962,7 +992,7 @@ struct UseLinkInstructionsView: View {
     }
     
     private func copyLink() {
-        // Don't copy if no photo uploaded
+        // Don't copy if no theme selected
         guard themeIsSelected else {
             Analytics.shared.track(
                 event: "copy_link_blocked_no_theme",

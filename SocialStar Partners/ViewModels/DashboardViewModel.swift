@@ -10,14 +10,14 @@ class DashboardViewModel: ObservableObject {
     @Published var ratingLinks: [RatingLink] = []
     @Published var isLoading = false
     @Published var isInitialDataLoad = true
-    @Published var isUploadingPhoto = false // NEW: Photo upload state
+    @Published var isUploadingPhoto = false
     @Published var errorMessage = ""
     
     private var linkListener: ListenerRegistration?
     private var affiliateListener: ListenerRegistration?
     private var hasReceivedInitialLinkData = false
     private var hasReceivedInitialAffiliateData = false
-    private let storage = Storage.storage() // NEW: Firebase Storage reference
+    private let storage = Storage.storage()
     
     var totalEarnings: Double {
         ratingLinks.reduce(0) { $0 + $1.earnings }
@@ -177,7 +177,6 @@ class DashboardViewModel: ObservableObject {
         }
     }
     
-    // Add this to DashboardViewModel
     func updateLinkTheme(link: RatingLink, theme: String) {
         guard let user = Auth.auth().currentUser else { return }
         
@@ -250,7 +249,6 @@ class DashboardViewModel: ObservableObject {
             }
     }
     
-    // NEW: Upload photo for a specific link
     func uploadLinkPhoto(_ image: UIImage, for link: RatingLink) {
         guard let userId = Auth.auth().currentUser?.uid,
               let imageData = image.optimizedForUpload() else { return }
@@ -312,7 +310,6 @@ class DashboardViewModel: ObservableObject {
         }
     }
     
-    // NEW: Update link's photo URL in Firestore
     private func updateLinkPhotoUrl(_ url: String?, for link: RatingLink) {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
@@ -450,13 +447,65 @@ class DashboardViewModel: ObservableObject {
             }
     }
     
+    // NEW: Public method to check daily limit
+    func checkDailyLimit(completion: @escaping (Bool, Int) -> Void) {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            completion(true, 2)
+            return
+        }
+        
+        checkDailyLinkLimit(userId: userId) { canCreate, todayCount in
+            let remaining = max(0, 2 - todayCount)
+            completion(canCreate, remaining)
+        }
+    }
+    
+    // NEW: Check if user can create more links today
+    private func checkDailyLinkLimit(userId: String, completion: @escaping (Bool, Int) -> Void) {
+        let db = Firestore.firestore()
+        
+        // Get start and end of today
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: Date())
+        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        
+        db.collection("rating_links")
+            .whereField("affiliateId", isEqualTo: userId)
+            .whereField("createdAt", isGreaterThanOrEqualTo: Timestamp(date: startOfDay))
+            .whereField("createdAt", isLessThan: Timestamp(date: endOfDay))
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    Analytics.shared.trackError(
+                        message: "Failed to check daily link limit: \(error.localizedDescription)"
+                    )
+                    // On error, allow creation (fail open)
+                    completion(true, 0)
+                    return
+                }
+                
+                let todayCount = snapshot?.documents.count ?? 0
+                let canCreate = todayCount < 2
+                
+                Analytics.shared.track(
+                    event: "daily_link_limit_checked",
+                    properties: [
+                        "user_id": userId,
+                        "today_count": todayCount,
+                        "can_create": canCreate
+                    ]
+                )
+                
+                completion(canCreate, todayCount)
+            }
+    }
+    
     func createNewLink(completion: @escaping (RatingLink?) -> Void) {
         guard let user = Auth.auth().currentUser else {
             completion(nil)
             return
         }
         
-        // NEW: Check if user is blocked from creating links
+        // Check if user is blocked from creating links
         guard let affiliateData = affiliateData, affiliateData.canCreateLinks else {
             DispatchQueue.main.async {
                 self.errorMessage = "Link creation is currently paused for your account. Please contact support."
@@ -473,6 +522,32 @@ class DashboardViewModel: ObservableObject {
             return
         }
         
+        // NEW: Check daily link creation limit
+        checkDailyLinkLimit(userId: user.uid) { canCreate, todayCount in
+            guard canCreate else {
+                DispatchQueue.main.async {
+                    self.errorMessage = "You've reached your daily limit of 2 links. Try again tomorrow."
+                    
+                    Analytics.shared.track(
+                        event: "link_creation_blocked",
+                        properties: [
+                            "user_id": user.uid,
+                            "reason": "daily_limit_reached",
+                            "today_count": todayCount
+                        ]
+                    )
+                }
+                completion(nil)
+                return
+            }
+            
+            // Proceed with link creation
+            self.performLinkCreation(userId: user.uid, completion: completion)
+        }
+    }
+    
+    // NEW: Extracted link creation logic
+    private func performLinkCreation(userId: String, completion: @escaping (RatingLink?) -> Void) {
         isLoading = true
         errorMessage = ""
         
@@ -484,7 +559,7 @@ class DashboardViewModel: ObservableObject {
         )
         
         let db = Firestore.firestore()
-        let linkId = "\(user.uid)_\(Int(Date().timeIntervalSince1970 * 1000))"
+        let linkId = "\(userId)_\(Int(Date().timeIntervalSince1970 * 1000))"
         let linkNumber = ratingLinks.count + 1
         let title = "Rating Link #\(linkNumber)"
         
@@ -492,11 +567,11 @@ class DashboardViewModel: ObservableObject {
         let parlayAmounts = generateRandomParlayAmounts()
         
         let linkData: [String: Any] = [
-            "affiliateId": user.uid,
+            "affiliateId": userId,
             "linkId": linkId,
             "title": title,
             "description": "",
-            "url": "rate.socialstarapp.com/rate/\(user.uid)/\(linkId)",
+            "url": "rate.socialstarapp.com/rate/\(userId)/\(linkId)",
             "createdAt": Timestamp(),
             "expiresAt": Timestamp(date: Date().addingTimeInterval(48 * 60 * 60)),
             "totalRatings": 0,
@@ -505,7 +580,6 @@ class DashboardViewModel: ObservableObject {
             "parlayEntry": parlayAmounts.entry,
             "parlayWin": parlayAmounts.win,
             "parlayProfit": parlayAmounts.profit
-            // photoUrl will be added later when user uploads a photo
         ]
         
         // Create link in a batch
