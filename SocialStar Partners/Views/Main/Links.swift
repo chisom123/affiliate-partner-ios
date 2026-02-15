@@ -209,7 +209,7 @@ struct LinksView: View {
             dailyLinksRemaining = remaining
             
             if !canCreate {
-                blockReason = "You've reached your daily limit of 2 links. Try again tomorrow."
+                blockReason = "You've reached your daily limit of 2 links. Please try again tomorrow."
                 showBlockedAlert = true
                 
                 Analytics.shared.track(

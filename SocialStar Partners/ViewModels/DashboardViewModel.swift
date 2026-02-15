@@ -526,7 +526,7 @@ class DashboardViewModel: ObservableObject {
         checkDailyLinkLimit(userId: user.uid) { canCreate, todayCount in
             guard canCreate else {
                 DispatchQueue.main.async {
-                    self.errorMessage = "You've reached your daily limit of 2 links. Try again tomorrow."
+                    self.errorMessage = "You've reached your daily limit of 2 links. Please try again tomorrow."
                     
                     Analytics.shared.track(
                         event: "link_creation_blocked",
