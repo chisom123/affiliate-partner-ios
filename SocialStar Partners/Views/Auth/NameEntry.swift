@@ -15,7 +15,7 @@ struct NameView: View {
     @State private var lastName = ""
     @State private var isLoading = false
     @State private var errorMessage = ""
-    @State private var navigateToProfilePicture = false
+    @State private var navigateToPhone = false
     
     var body: some View {
         VStack(spacing: 30) {
@@ -63,14 +63,14 @@ struct NameView: View {
                 Button(action: {
                     // Analytics: Track account creation attempt
                     Analytics.shared.trackTap(
-                        elementId: "continue_to_profile_picture_button",
+                        elementId: "continue_to_phone_button",
                         screenName: "name_entry",
                         properties: [
                             "form_valid": !firstName.isEmpty && !lastName.isEmpty
                         ]
                     )
                     
-                    navigateToProfilePicture = true
+                    navigateToPhone = true
                 }) {
                     Text("Continue")
                         .frame(maxWidth: .infinity)
@@ -89,15 +89,15 @@ struct NameView: View {
                 .padding(.horizontal)
             }
             
-            // Navigation Link to Profile Picture
+            // Navigation Link to Phone Entry ← was ProfilePictureView
             NavigationLink(
-                destination: ProfilePictureView(
+                destination: PhoneEntryView(
                     email: email,
                     password: password,
                     firstName: firstName,
                     lastName: lastName
                 ),
-                isActive: $navigateToProfilePicture
+                isActive: $navigateToPhone
             ) {
                 EmptyView()
             }

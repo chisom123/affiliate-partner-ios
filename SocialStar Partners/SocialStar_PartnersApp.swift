@@ -2,19 +2,46 @@ import SwiftUI
 import Firebase
 import FirebaseAuth
 
+class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        FirebaseApp.configure()
+        return true
+    }
+
+    func application(_ application: UIApplication,
+                     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Auth.auth().setAPNSToken(deviceToken, type: .unknown)
+    }
+
+    func application(_ application: UIApplication,
+                     didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+                     fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        if Auth.auth().canHandleNotification(userInfo) {
+            completionHandler(.noData)
+            return
+        }
+        completionHandler(.noData)
+    }
+
+    func application(_ application: UIApplication,
+                     open url: URL,
+                     options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        return Auth.auth().canHandle(url)
+    }
+}
+
 @main
 struct SocialStarPartnersApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+
     @State private var isAuthenticated = false
     @State private var isCheckingAuth = true
     
     init() {
-        FirebaseApp.configure()
-        
-        // Configure analytics with PostHog
+        // FirebaseApp.configure() moved to AppDelegate
         let POSTHOG_API_KEY = "phc_qj9C9wVUnzp0JrbLAjcH603STtMN7Eu0dvHEt5ndNwM"
         let POSTHOG_HOST = "https://eu.i.posthog.com"
-        
-        // Setup analytics with PostHog implementation
         let analyticsService = PostHogAnalyticsService(apiKey: POSTHOG_API_KEY, host: POSTHOG_HOST)
         Analytics.shared.configure(with: analyticsService)
     }
@@ -23,7 +50,6 @@ struct SocialStarPartnersApp: App {
         WindowGroup {
             Group {
                 if isCheckingAuth {
-                    // Show loading state while checking authentication
                     LaunchScreenView()
                 } else if isAuthenticated {
                     MainTabView()
@@ -41,19 +67,14 @@ struct SocialStarPartnersApp: App {
     }
     
     private func checkAuthState() {
-        // Check if this is the initial auth check
         let wasCheckingAuth = isCheckingAuth
-        
         isAuthenticated = Auth.auth().currentUser != nil
-        
-        // Only set isCheckingAuth to false after the initial check
         if wasCheckingAuth {
             isCheckingAuth = false
         }
     }
 }
 
-// Loading screen to show while checking authentication
 struct LaunchScreenView: View {
     var body: some View {
         ProgressView()

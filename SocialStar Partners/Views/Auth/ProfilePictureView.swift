@@ -9,26 +9,26 @@ struct ProfilePictureView: View {
     let password: String
     let firstName: String
     let lastName: String
-    
+    let phoneVerificationID: String
+    let phoneOTPCode: String
+
     @State private var selectedItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
     @State private var isLoading = false
     @State private var errorMessage = ""
     @State private var navigateToDashboard = false
-    @State private var skipProfilePicture = false
-    
+
     var body: some View {
         VStack(spacing: 30) {
             Text("Add Profile Picture")
                 .font(.system(size: 24, weight: .bold))
-            
+
             VStack(spacing: 20) {
-                // Profile Image Circle
                 ZStack {
                     Circle()
                         .fill(Color.gray.opacity(0.2))
                         .frame(width: 120, height: 120)
-                    
+
                     if let selectedImage = selectedImage {
                         Image(uiImage: selectedImage)
                             .resizable()
@@ -43,8 +43,7 @@ struct ProfilePictureView: View {
                             .foregroundColor(.gray)
                     }
                 }
-                
-                // Photo Picker Button
+
                 PhotosPicker(
                     selection: $selectedItem,
                     matching: .images,
@@ -55,35 +54,29 @@ struct ProfilePictureView: View {
                         .foregroundColor(.blue)
                 }
             }
-            
+
             if !errorMessage.isEmpty {
                 Text(errorMessage)
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
-            
-            // Fixed container width for loading state
+
             if isLoading {
                 HStack {
                     Spacer()
-                    ProgressView()
-                        .scaleEffect(1.2)
+                    ProgressView().scaleEffect(1.2)
                     Spacer()
                 }
-                .frame(height: 50) // Same height as the button to maintain layout
+                .frame(height: 50)
                 .padding(.horizontal)
             } else {
                 Button(action: {
-                    // Analytics: Track profile picture upload attempt
                     Analytics.shared.trackTap(
                         elementId: "complete_profile_picture_button",
                         screenName: "profile_picture_entry",
-                        properties: [
-                            "has_image": selectedImage != nil
-                        ]
+                        properties: ["has_image": selectedImage != nil]
                     )
-                    
                     if let image = selectedImage {
                         uploadProfilePicture(image)
                     }
@@ -112,84 +105,110 @@ struct ProfilePictureView: View {
             Task {
                 if let data = try? await newItem?.loadTransferable(type: Data.self),
                    let image = UIImage(data: data) {
-                    await MainActor.run {
-                        selectedImage = image
-                    }
+                    await MainActor.run { selectedImage = image }
                 }
             }
         }
         .onAppear {
-            // Analytics: Track profile picture screen view
             Analytics.shared.trackScreen(name: "profile_picture_entry")
         }
-        
-        // Hidden Navigation Link
+
         NavigationLink(destination: MainTabView(), isActive: $navigateToDashboard) {
             EmptyView()
         }
         .hidden()
     }
-    
+
     private func uploadProfilePicture(_ image: UIImage) {
         isLoading = true
         errorMessage = ""
-        
+
         guard let imageData = image.optimizedForProfilePicture() else {
             errorMessage = "Failed to process image"
             isLoading = false
             return
         }
-        
-        let storage = Storage.storage()
-        let storageRef = storage.reference()
-        let profilePicturesRef = storageRef.child("profile_pictures/\(UUID().uuidString).jpg")
-        
+
+        let profilePicturesRef = Storage.storage().reference()
+            .child("profile_pictures/\(UUID().uuidString).jpg")
         let metadata = StorageMetadata()
         metadata.contentType = "image/jpeg"
-        
-        profilePicturesRef.putData(imageData, metadata: metadata) { metadata, error in
+
+        profilePicturesRef.putData(imageData, metadata: metadata) { _, error in
             if let error = error {
                 errorMessage = "Failed to upload image: \(error.localizedDescription)"
                 isLoading = false
                 return
             }
-            
-            // Get download URL
             profilePicturesRef.downloadURL { url, error in
                 if let error = error {
                     errorMessage = "Failed to get image URL: \(error.localizedDescription)"
                     isLoading = false
                     return
                 }
-                
                 createAccount(with: url?.absoluteString)
             }
         }
     }
-    
+
     private func createAccount(with profilePictureUrl: String?) {
-        isLoading = true
-        
-        // Create Firebase Auth user first
         Auth.auth().createUser(withEmail: email, password: password) { result, error in
             if let error = error {
                 errorMessage = error.localizedDescription
                 isLoading = false
                 return
             }
-            
             guard let user = result?.user else {
                 errorMessage = "Failed to get user information"
                 isLoading = false
                 return
             }
-            
+            linkPhoneCredential(to: user, profilePictureUrl: profilePictureUrl)
+        }
+    }
+
+    private func linkPhoneCredential(to user: User, profilePictureUrl: String?) {
+        let credential = PhoneAuthProvider.provider().credential(
+            withVerificationID: phoneVerificationID,
+            verificationCode: phoneOTPCode
+        )
+
+        user.link(with: credential) { _, error in
+            if let error = error {
+                let code = (error as NSError).code
+
+                // Delete the just-created email account in ALL error cases
+                // to avoid orphaned accounts on retry
+                user.delete { _ in }
+                isLoading = false
+
+                if code == 17025 {
+                    errorMessage = "This phone number is already associated with an account. Please sign in instead."
+                    Analytics.shared.track(
+                        event: "phone_link_duplicate",
+                        properties: [AnalyticsProperty.screenName: "profile_picture_entry"]
+                    )
+                } else if code == 17044 || code == 17045 {
+                    errorMessage = "Your verification code has expired. Please go back and request a new one."
+                } else {
+                    errorMessage = "Phone verification failed. Please go back and try again."
+                    Analytics.shared.track(
+                        event: "phone_link_failed",
+                        properties: [
+                            AnalyticsProperty.screenName: "profile_picture_entry",
+                            AnalyticsProperty.errorMessage: error.localizedDescription
+                        ]
+                    )
+                }
+                return  // ← always return on any error, never fall through to Firestore
+            }
+
             createFirestoreDocument(for: user, profilePictureUrl: profilePictureUrl)
         }
     }
-    
+
     private func createFirestoreDocument(for user: User, profilePictureUrl: String?) {
-        let db = Firestore.firestore()
+        // phoneNumber intentionally not stored here — it lives in Firebase Auth only
         let affiliateData: [String: Any] = [
             "firstName": firstName,
             "lastName": lastName,
@@ -205,16 +224,15 @@ struct ProfilePictureView: View {
             "totalWithdrawn": 0.0,
             "linkCredits": 0
         ]
-        
-        db.collection("affiliates").document(user.uid).setData(affiliateData) { error in
+
+        Firestore.firestore().collection("affiliates").document(user.uid).setData(affiliateData) { error in
             isLoading = false
-            
+
             if let error = error {
                 errorMessage = "Failed to create account: \(error.localizedDescription)"
                 return
             }
-            
-            // Analytics: Track successful account creation
+
             Analytics.shared.track(
                 event: "account_created_successfully",
                 properties: [
@@ -223,8 +241,7 @@ struct ProfilePictureView: View {
                     "has_profile_picture": profilePictureUrl != nil
                 ]
             )
-            
-            // Account created successfully - navigate to dashboard
+
             navigateToDashboard = true
             NotificationCenter.default.post(name: .authStateDidChange, object: nil)
         }
