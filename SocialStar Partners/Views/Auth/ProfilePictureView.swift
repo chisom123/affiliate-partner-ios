@@ -77,9 +77,8 @@ struct ProfilePictureView: View {
                         screenName: "profile_picture_entry",
                         properties: ["has_image": selectedImage != nil]
                     )
-                    if let image = selectedImage {
-                        uploadProfilePicture(image)
-                    }
+                    // Start with account creation, photo upload happens after auth
+                    createAccount()
                 }) {
                     Text("Complete Setup")
                         .frame(maxWidth: .infinity)
@@ -119,39 +118,10 @@ struct ProfilePictureView: View {
         .hidden()
     }
 
-    private func uploadProfilePicture(_ image: UIImage) {
+    private func createAccount() {
         isLoading = true
         errorMessage = ""
 
-        guard let imageData = image.optimizedForProfilePicture() else {
-            errorMessage = "Failed to process image"
-            isLoading = false
-            return
-        }
-
-        let profilePicturesRef = Storage.storage().reference()
-            .child("profile_pictures/\(UUID().uuidString).jpg")
-        let metadata = StorageMetadata()
-        metadata.contentType = "image/jpeg"
-
-        profilePicturesRef.putData(imageData, metadata: metadata) { _, error in
-            if let error = error {
-                errorMessage = "Failed to upload image: \(error.localizedDescription)"
-                isLoading = false
-                return
-            }
-            profilePicturesRef.downloadURL { url, error in
-                if let error = error {
-                    errorMessage = "Failed to get image URL: \(error.localizedDescription)"
-                    isLoading = false
-                    return
-                }
-                createAccount(with: url?.absoluteString)
-            }
-        }
-    }
-
-    private func createAccount(with profilePictureUrl: String?) {
         Auth.auth().createUser(withEmail: email, password: password) { result, error in
             if let error = error {
                 errorMessage = error.localizedDescription
@@ -163,11 +133,11 @@ struct ProfilePictureView: View {
                 isLoading = false
                 return
             }
-            linkPhoneCredential(to: user, profilePictureUrl: profilePictureUrl)
+            linkPhoneCredential(to: user)
         }
     }
 
-    private func linkPhoneCredential(to user: User, profilePictureUrl: String?) {
+    private func linkPhoneCredential(to user: User) {
         let credential = PhoneAuthProvider.provider().credential(
             withVerificationID: phoneVerificationID,
             verificationCode: phoneOTPCode
@@ -177,8 +147,6 @@ struct ProfilePictureView: View {
             if let error = error {
                 let code = (error as NSError).code
 
-                // Delete the just-created email account in ALL error cases
-                // to avoid orphaned accounts on retry
                 user.delete { _ in }
                 isLoading = false
 
@@ -200,15 +168,51 @@ struct ProfilePictureView: View {
                         ]
                     )
                 }
-                return  // ← always return on any error, never fall through to Firestore
+                return
             }
 
-            createFirestoreDocument(for: user, profilePictureUrl: profilePictureUrl)
+            // User is now authenticated — safe to upload photo
+            if let image = selectedImage {
+                uploadProfilePicture(image, for: user)
+            } else {
+                saveFirestoreDocument(for: user, profilePictureUrl: nil)
+            }
         }
     }
 
-    private func createFirestoreDocument(for user: User, profilePictureUrl: String?) {
-        // phoneNumber intentionally not stored here — it lives in Firebase Auth only
+    private func uploadProfilePicture(_ image: UIImage, for user: User) {
+        guard let imageData = image.optimizedForProfilePicture() else {
+            saveFirestoreDocument(for: user, profilePictureUrl: nil)
+            return
+        }
+
+        let profilePicturesRef = Storage.storage().reference()
+            .child("profile_pictures/\(UUID().uuidString).jpg")
+        let metadata = StorageMetadata()
+        metadata.contentType = "image/jpeg"
+
+        profilePicturesRef.putData(imageData, metadata: metadata) { _, error in
+            if let error = error {
+                DispatchQueue.main.async {
+                    self.errorMessage = "Failed to upload image: \(error.localizedDescription)"
+                    self.isLoading = false
+                }
+                return
+            }
+            profilePicturesRef.downloadURL { url, error in
+                if let error = error {
+                    DispatchQueue.main.async {
+                        self.errorMessage = "Failed to get image URL: \(error.localizedDescription)"
+                        self.isLoading = false
+                    }
+                    return
+                }
+                saveFirestoreDocument(for: user, profilePictureUrl: url?.absoluteString)
+            }
+        }
+    }
+
+    private func saveFirestoreDocument(for user: User, profilePictureUrl: String?) {
         let affiliateData: [String: Any] = [
             "firstName": firstName,
             "lastName": lastName,
@@ -226,24 +230,26 @@ struct ProfilePictureView: View {
         ]
 
         Firestore.firestore().collection("affiliates").document(user.uid).setData(affiliateData) { error in
-            isLoading = false
+            DispatchQueue.main.async {
+                isLoading = false
 
-            if let error = error {
-                errorMessage = "Failed to create account: \(error.localizedDescription)"
-                return
+                if let error = error {
+                    errorMessage = "Failed to create account: \(error.localizedDescription)"
+                    return
+                }
+
+                Analytics.shared.track(
+                    event: "account_created_successfully",
+                    properties: [
+                        AnalyticsProperty.screenName: "profile_picture_entry",
+                        "user_id": user.uid,
+                        "has_profile_picture": profilePictureUrl != nil
+                    ]
+                )
+
+                navigateToDashboard = true
+                NotificationCenter.default.post(name: .authStateDidChange, object: nil)
             }
-
-            Analytics.shared.track(
-                event: "account_created_successfully",
-                properties: [
-                    AnalyticsProperty.screenName: "profile_picture_entry",
-                    "user_id": user.uid,
-                    "has_profile_picture": profilePictureUrl != nil
-                ]
-            )
-
-            navigateToDashboard = true
-            NotificationCenter.default.post(name: .authStateDidChange, object: nil)
         }
     }
 }
