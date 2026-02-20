@@ -106,7 +106,6 @@ struct PhoneVerificationView: View {
                     Text("Resend Code")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.blue)
-                        .underline()
                 }
             }
         }
