@@ -525,6 +525,7 @@ struct UseLinkInstructionsView: View {
             ratingsRow
             earningsRow
         }
+        .padding(.horizontal, 5)
     }
     
     private var ratingsRow: some View {
