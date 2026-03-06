@@ -450,12 +450,12 @@ class DashboardViewModel: ObservableObject {
     // NEW: Public method to check daily limit
     func checkDailyLimit(completion: @escaping (Bool, Int) -> Void) {
         guard let userId = Auth.auth().currentUser?.uid else {
-            completion(true, 2)
+            completion(true, 1)
             return
         }
         
         checkDailyLinkLimit(userId: userId) { canCreate, todayCount in
-            let remaining = max(0, 2 - todayCount)
+            let remaining = max(0, 1 - todayCount)
             completion(canCreate, remaining)
         }
     }
@@ -484,7 +484,7 @@ class DashboardViewModel: ObservableObject {
                 }
                 
                 let todayCount = snapshot?.documents.count ?? 0
-                let canCreate = todayCount < 2
+                let canCreate = todayCount < 1
                 
                 Analytics.shared.track(
                     event: "daily_link_limit_checked",
@@ -526,7 +526,7 @@ class DashboardViewModel: ObservableObject {
         checkDailyLinkLimit(userId: user.uid) { canCreate, todayCount in
             guard canCreate else {
                 DispatchQueue.main.async {
-                    self.errorMessage = "You've reached your daily limit of 2 links. Please try again tomorrow."
+                    self.errorMessage = "You've reached your daily limit of 1 link. Please try again tomorrow."
                     
                     Analytics.shared.track(
                         event: "link_creation_blocked",
