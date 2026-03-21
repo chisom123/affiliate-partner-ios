@@ -1038,7 +1038,7 @@ struct ExamplesView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var currentIndex = 0
     
-    private let exampleImages = ["example1", "example2", "example3", "example4"]
+    private let exampleImages = ["explain1", "example1", "example2"]
     
     var body: some View {
         NavigationView {
