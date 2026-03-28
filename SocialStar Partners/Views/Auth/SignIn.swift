@@ -1,6 +1,7 @@
 import SwiftUI
 import Firebase
 import FirebaseAuth
+import FirebaseFirestore
 
 struct SignInView: View {
     @State private var email = ""
@@ -38,7 +39,6 @@ struct SignInView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
                     .onAppear {
-                        // Analytics: Track signin error
                         Analytics.shared.trackError(
                             message: errorMessage,
                             properties: [
@@ -52,7 +52,6 @@ struct SignInView: View {
                 ProgressView()
             } else {
                 Button(action: {
-                    // Analytics: Track signin attempt
                     Analytics.shared.trackTap(
                         elementId: "signin_button",
                         screenName: "sign_in",
@@ -60,7 +59,6 @@ struct SignInView: View {
                             "form_valid": !email.isEmpty && !password.isEmpty
                         ]
                     )
-                    
                     signIn()
                 }) {
                     Text("Log In")
@@ -88,7 +86,6 @@ struct SignInView: View {
         .navigationBarTitleDisplayMode(.inline)
         .tint(.black)
         .onAppear {
-            // Analytics: Track signin screen view
             Analytics.shared.trackScreen(name: "sign_in")
         }
     }
@@ -98,42 +95,68 @@ struct SignInView: View {
         errorMessage = ""
         
         Auth.auth().signIn(withEmail: email, password: password) { result, error in
-            isLoading = false
-            
             if let error = error {
-                errorMessage = error.localizedDescription
-                
-                // Analytics: Track signin failure
-                Analytics.shared.track(
-                    event: "signin_failed",
-                    properties: [
-                        AnalyticsProperty.screenName: "sign_in",
-                        AnalyticsProperty.errorMessage: error.localizedDescription
-                    ]
-                )
+                DispatchQueue.main.async {
+                    isLoading = false
+                    errorMessage = error.localizedDescription
+                    Analytics.shared.track(
+                        event: "signin_failed",
+                        properties: [
+                            AnalyticsProperty.screenName: "sign_in",
+                            AnalyticsProperty.errorMessage: error.localizedDescription
+                        ]
+                    )
+                }
                 return
             }
             
-            // Analytics: Track successful signin
+            guard let user = Auth.auth().currentUser else {
+                DispatchQueue.main.async {
+                    isLoading = false
+                }
+                return
+            }
+            
             Analytics.shared.track(
                 event: "signin_successful",
+                properties: [AnalyticsProperty.screenName: "sign_in"]
+            )
+            
+            Analytics.shared.identify(
+                userId: user.uid,
                 properties: [
-                    AnalyticsProperty.screenName: "sign_in"
+                    "email": user.email ?? "",
+                    "created_at": user.metadata.creationDate?.timeIntervalSince1970 ?? 0
                 ]
             )
             
-            // Sign in successful - trigger app state change
-            NotificationCenter.default.post(name: .authStateDidChange, object: nil)
-            
-            // After successful authentication
-            if let user = Auth.auth().currentUser {
-                Analytics.shared.identify(
-                    userId: user.uid,
-                    properties: [
-                        "email": user.email ?? "",
-                        "created_at": user.metadata.creationDate?.timeIntervalSince1970 ?? 0
-                    ]
-                )
+            // Check if profile is complete
+            Firestore.firestore().collection("affiliates").document(user.uid).getDocument { document, error in
+                DispatchQueue.main.async {
+                    isLoading = false
+                    
+                    guard let data = document?.data() else {
+                        NotificationCenter.default.post(name: .authStateDidChange, object: nil)
+                        return
+                    }
+                    
+                    let hasPhone = user.phoneNumber != nil && !user.phoneNumber!.isEmpty
+                    let hasProfilePicture = (data["profilePictureUrl"] as? String).map { !$0.isEmpty } ?? false
+                    
+                    if !hasPhone || !hasProfilePicture {
+                        Analytics.shared.track(
+                            event: "signin_profile_incomplete",
+                            properties: [
+                                AnalyticsProperty.screenName: "sign_in",
+                                "has_phone": hasPhone,
+                                "has_profile_picture": hasProfilePicture
+                            ]
+                        )
+                        NotificationCenter.default.post(name: .profileIncomplete, object: nil)
+                    } else {
+                        NotificationCenter.default.post(name: .authStateDidChange, object: nil)
+                    }
+                }
             }
         }
     }

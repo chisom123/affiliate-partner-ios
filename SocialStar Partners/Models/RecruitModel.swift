@@ -9,6 +9,7 @@ struct Recruit: Identifiable {
     let joinedAt: Date
     let recruiterEarnings: Double
     let totalRatings: Int
+    let storiesCompleted: Int
     let lastRatingAt: Date?
     var profilePictureUrl: String?
     
@@ -36,6 +37,7 @@ struct Recruit: Identifiable {
         // Stats from recruits subcollection
         self.recruiterEarnings = data["recruiterEarnings"] as? Double ?? 0.0
         self.totalRatings = data["totalRatings"] as? Int ?? 0
+        self.storiesCompleted = data["storiesCompleted"] as? Int ?? 0
         
         if let joinedTimestamp = data["joinedAt"] as? Timestamp {
             self.joinedAt = joinedTimestamp.dateValue()
