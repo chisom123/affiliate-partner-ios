@@ -196,7 +196,7 @@ struct RecruitDetailSheet: View {
                         Spacer()
                         
                         VStack(alignment: .trailing, spacing: 4) {
-                            Text("$\(Double(recruit.storiesCompleted), specifier: "%.2f")")
+                            Text("$\(Double(recruit.storiesCompleted) * 5.0, specifier: "%.2f")")
                                 .font(.system(size: 20, weight: .bold))
                                 .foregroundColor(.green)
                             Text("Earned")
@@ -431,7 +431,7 @@ struct RecruitRow: View {
             
             Spacer()
             
-            Text("$\(Double(recruit.storiesCompleted), specifier: "%.2f")")
+            Text("$\(Double(recruit.storiesCompleted) * 5.0, specifier: "%.2f")")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundColor(.green)
             
