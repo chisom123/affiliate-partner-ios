@@ -146,7 +146,7 @@ struct RecruitView: View {
     private var stepCards: [StepCard] {
         [
             StepCard(id: 1, icon: "link", title: "Share Link", description: "Share your recruit link with friends"),
-            StepCard(id: 2, icon: "dollarsign", title: "Earn Money", description: "Earn $1 every time they post a story")
+            StepCard(id: 2, icon: "dollarsign", title: "Earn Money", description: "Earn $5 every time they post a story")
         ]
     }
     
@@ -307,7 +307,7 @@ struct RecruitLinkStatRow: View {
                 }
                 
                 if stat.hasCompleted {
-                    Text("$1.00 Earned")
+                    Text("$5.00 Earned")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 8)
