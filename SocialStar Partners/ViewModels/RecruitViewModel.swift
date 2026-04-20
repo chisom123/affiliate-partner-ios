@@ -8,17 +8,14 @@ class RecruitViewModel: ObservableObject {
     @Published var totalRecruiterEarnings: Double = 0.0
     @Published var recruits: [Recruit] = []
     @Published var isLoadingRecruits: Bool = false
-    @Published var recruitLinkStats: [String: [RecruitLinkStat]] = [:]
     
     private var db = Firestore.firestore()
     private var recruitsListener: ListenerRegistration?
     private var recruitDetailsListeners: [String: ListenerRegistration] = [:]
-    private var recruitLinkStatsListeners: [String: ListenerRegistration] = [:]
     
     deinit {
         recruitsListener?.remove()
         recruitDetailsListeners.values.forEach { $0.remove() }
-        recruitLinkStatsListeners.values.forEach { $0.remove() }
     }
     
     func loadRecruitData() {
@@ -31,7 +28,6 @@ class RecruitViewModel: ObservableObject {
             recruitLink = "https://partners.socialstarapp.com"
             return
         }
-        
         recruitLink = "https://partners.socialstarapp.com/recruit/\(userId)"
         
         Analytics.shared.trackScreen(
@@ -58,7 +54,7 @@ class RecruitViewModel: ObservableObject {
                 }
             }
         
-        // Listen to recruiter's recruits subcollection for recruit IDs
+        // Listen to recruiter's recruits subcollection
         recruitsListener = db.collection("affiliates").document(userId)
             .collection("recruits")
             .addSnapshotListener { [weak self] snapshot, error in
@@ -81,10 +77,6 @@ class RecruitViewModel: ObservableObject {
                     // Clear existing listeners
                     self?.recruitDetailsListeners.values.forEach { $0.remove() }
                     self?.recruitDetailsListeners.removeAll()
-                    self?.recruitLinkStatsListeners.values.forEach { $0.remove() }
-                    self?.recruitLinkStatsListeners.removeAll()
-                    
-                    // Clear current recruits array
                     self?.recruits.removeAll()
                     
                     for recruit in recruits {
@@ -110,49 +102,25 @@ class RecruitViewModel: ObservableObject {
                         } else {
                             self?.recruits.append(updatedRecruit)
                         }
-                        
                         self?.sortRecruits()
-                        self?.setupRecruitLinkStatsListener(recruiterId: recruiterId, recruitId: recruit.id)
                     }
-                } else if let error = error {
-                    print("Error fetching recruit details for \(recruit.id): \(error.localizedDescription)")
                 }
             }
         
         recruitDetailsListeners[recruit.id] = listener
     }
     
-    private func setupRecruitLinkStatsListener(recruiterId: String, recruitId: String) {
-        recruitLinkStatsListeners[recruitId]?.remove()
-        
-        let listener = db.collection("affiliates").document(recruiterId)
-            .collection("recruits").document(recruitId)
-            .collection("recruitLinkStats")
-            .addSnapshotListener { [weak self] snapshot, error in
-                if let error = error {
-                    print("Error fetching link stats for \(recruitId): \(error.localizedDescription)")
-                    return
-                }
-                
-                guard let documents = snapshot?.documents else { return }
-                
-                let stats = documents.compactMap { doc in
-                    RecruitLinkStat(documentID: doc.documentID, data: doc.data())
-                }.sorted { $0.lastRatingAt > $1.lastRatingAt }
-                
-                DispatchQueue.main.async {
-                    self?.recruitLinkStats[recruitId] = stats
-                }
-            }
-        
-        recruitLinkStatsListeners[recruitId] = listener
-    }
-    
     private func sortRecruits() {
         recruits.sort { recruit1, recruit2 in
-            if recruit1.recruiterEarnings != recruit2.recruiterEarnings {
-                return recruit1.recruiterEarnings > recruit2.recruiterEarnings
+            // Sort by bonus earned first
+            if recruit1.hasEarnedBonus != recruit2.hasEarnedBonus {
+                return recruit1.hasEarnedBonus && !recruit2.hasEarnedBonus
             }
+            // Then by progress
+            if recruit1.progressToBonus != recruit2.progressToBonus {
+                return recruit1.progressToBonus > recruit2.progressToBonus
+            }
+            // Then by join date
             return recruit1.joinedAt > recruit2.joinedAt
         }
     }

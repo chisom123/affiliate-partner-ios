@@ -5,7 +5,6 @@ import FirebaseFirestore
 struct RecruitView: View {
     @StateObject private var viewModel = RecruitViewModel()
     @State private var showCopiedMessage = false
-    @State private var selectedRecruit: Recruit? = nil
     
     var body: some View {
         NavigationView {
@@ -25,7 +24,7 @@ struct RecruitView: View {
                                 HStack(spacing: 16) {
                                     VStack(spacing: 0) {
                                         Spacer()
-                                        Text("Earn Money\nRecruiting\nFriends")
+                                        Text("Earn money\nrecruiting\nfriends")
                                             .font(.system(size: 21, weight: .bold))
                                             .foregroundColor(.white)
                                             .multilineTextAlignment(.leading)
@@ -51,6 +50,22 @@ struct RecruitView: View {
                         .padding(.vertical, 16)
                         .background(Color.gray.opacity(0.1))
                         .cornerRadius(8)
+                    }
+                    
+                    // Total Earnings Summary (NEW)
+                    if viewModel.totalRecruiterEarnings > 0 {
+                        VStack(spacing: 8) {
+                            Text("Total Earned from Recruits")
+                                .font(.system(size: 14))
+                                .foregroundColor(.gray)
+                            Text("$\(viewModel.totalRecruiterEarnings, specifier: "%.2f")")
+                                .font(.system(size: 36, weight: .bold))
+                                .foregroundColor(.green)
+                        }
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(12)
                     }
                     
                     // Your Recruit Link
@@ -97,13 +112,23 @@ struct RecruitView: View {
                             Text("Your Recruits")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundColor(.primary)
+                            Spacer()
+                            if !viewModel.recruits.isEmpty {
+                                Text("\(viewModel.recruits.count)")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.gray)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(Color.gray.opacity(0.1))
+                                    .cornerRadius(12)
+                            }
                         }
                         
                         if viewModel.recruits.isEmpty {
                             VStack(spacing: 8) {
                                 Text("No Recruits Yet")
                                     .font(.system(size: 16, weight: .semibold))
-                                Text("Share your link to start earning")
+                                Text("Share your link to start earning $10 per recruit")
                                     .font(.system(size: 14))
                                     .foregroundColor(.gray)
                                     .multilineTextAlignment(.center)
@@ -116,9 +141,6 @@ struct RecruitView: View {
                         } else {
                             ForEach(viewModel.recruits) { recruit in
                                 RecruitRow(recruit: recruit)
-                                    .onTapGesture {
-                                        selectedRecruit = recruit
-                                    }
                             }
                         }
                     }
@@ -135,18 +157,12 @@ struct RecruitView: View {
         .onAppear {
             viewModel.loadRecruitData()
         }
-        .sheet(item: $selectedRecruit) { recruit in
-            RecruitDetailSheet(
-                recruit: recruit,
-                linkStats: viewModel.recruitLinkStats[recruit.id] ?? []
-            )
-        }
     }
     
     private var stepCards: [StepCard] {
         [
             StepCard(id: 1, icon: "link", title: "Share Link", description: "Share your recruit link with friends"),
-            StepCard(id: 2, icon: "dollarsign", title: "Earn Money", description: "Earn $5 every time they post a story")
+            StepCard(id: 2, icon: "dollarsign", title: "Earn $10", description: "When they get 10 total ratings")
         ]
     }
     
@@ -163,100 +179,94 @@ struct RecruitView: View {
     }
 }
 
-// MARK: - Recruit Detail Sheet
-struct RecruitDetailSheet: View {
+// MARK: - Recruit Row (All info in one row - no detail sheet needed)
+struct RecruitRow: View {
     let recruit: Recruit
-    let linkStats: [RecruitLinkStat]
-    @Environment(\.dismiss) private var dismiss
     
     var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Recruit Header
-                    HStack(spacing: 16) {
-                        if let profilePictureUrl = recruit.profilePictureUrl,
-                           !profilePictureUrl.isEmpty {
-                            AsyncImage(url: URL(string: profilePictureUrl)) { image in
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 60, height: 60)
-                                    .clipShape(Circle())
-                            } placeholder: {
-                                initialsAvatar(size: 60)
-                            }
-                        } else {
-                            initialsAvatar(size: 60)
-                        }
-                        
-                        Text(recruit.displayName)
-                            .font(.system(size: 20, weight: .bold))
-                        
-                        Spacer()
-                        
-                        VStack(alignment: .trailing, spacing: 4) {
-                            Text("$\(Double(recruit.storiesCompleted) * 5.0, specifier: "%.2f")")
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(.green)
-                            Text("Earned")
-                                .font(.system(size: 12))
-                                .foregroundColor(.gray)
-                        }
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                // Profile image
+                if let profilePictureUrl = recruit.profilePictureUrl,
+                   !profilePictureUrl.isEmpty {
+                    AsyncImage(url: URL(string: profilePictureUrl)) { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 44, height: 44)
+                            .clipShape(Circle())
+                    } placeholder: {
+                        initialsAvatar
                     }
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(12)
+                } else {
+                    initialsAvatar
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(recruit.displayName)
+                        .font(.system(size: 16, weight: .semibold))
                     
-                    // Stories Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Stories")
-                            .font(.system(size: 18, weight: .semibold))
-                        
-                        if linkStats.isEmpty {
-                            VStack(spacing: 8) {
-                                Text("No stories yet")
-                                    .font(.system(size: 16, weight: .semibold))
-                                Text("Stories will appear here once your recruit posts their first link")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.gray)
-                                    .multilineTextAlignment(.center)
-                            }
-                            .padding()
-                            .padding(.vertical, 20)
-                            .frame(maxWidth: .infinity)
-                            .background(Color.gray.opacity(0.05))
-                            .cornerRadius(8)
-                        } else {
-                            ForEach(linkStats) { stat in
-                                RecruitLinkStatRow(stat: stat)
-                            }
-                        }
+                    // Status line
+                    if recruit.hasEarnedBonus {
+                        Text("10+ ratings")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                    } else {
+                        Text("\(recruit.totalRatings) ratings")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
                     }
                 }
-                .padding()
+                
+                Spacer()
+                
+                // Earnings display
+                if recruit.hasEarnedBonus {
+                    Text("$10.00")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.green)
+                } else {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("$0")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.gray)
+                        Text("\(recruit.ratingsNeededForBonus) ratings to go")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.orange)
+                    }
+                }
             }
-            .navigationTitle("\(recruit.firstName)'s Stories")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Close") {
-                        dismiss()
+            .padding(.vertical, 10)
+            
+            // Progress bar (only if not completed)
+            if !recruit.hasEarnedBonus {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(height: 4)
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.blue)
+                            .frame(width: geometry.size.width * recruit.progressToBonus, height: 4)
                     }
-                    .foregroundColor(.black)
-                    .fontWeight(.semibold)
                 }
+                .frame(height: 4)
+                .padding(.bottom, 6)
             }
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.gray.opacity(0.05))
+        .cornerRadius(10)
     }
     
-    private func initialsAvatar(size: CGFloat) -> some View {
+    private var initialsAvatar: some View {
         ZStack {
             Circle()
                 .fill(Color.blue.opacity(0.1))
-                .frame(width: size, height: size)
+                .frame(width: 44, height: 44)
             Text(getInitials())
-                .font(.system(size: size * 0.35, weight: .bold))
+                .font(.system(size: 16, weight: .bold))
                 .foregroundColor(.blue)
         }
     }
@@ -269,91 +279,7 @@ struct RecruitDetailSheet: View {
     }
 }
 
-// MARK: - Recruit Link Stat Row
-struct RecruitLinkStatRow: View {
-    let stat: RecruitLinkStat
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Photo thumbnail
-            if let photoUrl = stat.photoUrl, !photoUrl.isEmpty {
-                AsyncImage(url: URL(string: photoUrl)) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 56, height: 56)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                } placeholder: {
-                    photoPlaceholder
-                }
-            } else {
-                photoPlaceholder
-            }
-            
-            // Title, theme and progress
-            VStack(alignment: .leading, spacing: 6) {
-                Text(stat.title.isEmpty ? "Untitled Story" : stat.title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .lineLimit(1)
-                
-                if let theme = stat.theme, !theme.isEmpty {
-                    Text(theme)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.blue)
-                        .cornerRadius(20)
-                }
-                
-                if stat.hasCompleted {
-                    Text("$5.00 Earned")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.green)
-                        .cornerRadius(20)
-                } else {
-                    VStack(alignment: .leading, spacing: 6) {
-                        GeometryReader { geometry in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.gray.opacity(0.2))
-                                    .frame(height: 6)
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(Color.blue)
-                                    .frame(width: geometry.size.width * CGFloat(stat.progressToNextPayout), height: 6)
-                            }
-                        }
-                        .frame(height: 6)
-                        
-                        Text("\(stat.totalRatings)/10 ratings")
-                            .font(.system(size: 11))
-                            .foregroundColor(.gray)
-                    }
-                }
-            }
-            
-            Spacer()
-        }
-        .padding(12)
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(10)
-    }
-    
-    private var photoPlaceholder: some View {
-        RoundedRectangle(cornerRadius: 8)
-            .fill(Color.gray.opacity(0.2))
-            .frame(width: 56, height: 56)
-            .overlay(
-                Image(systemName: "photo")
-                    .foregroundColor(.gray)
-            )
-    }
-}
-
-// MARK: - Models
+// MARK: - Models (unchanged)
 struct StepCard: Identifiable {
     let id: Int
     let icon: String
@@ -361,7 +287,7 @@ struct StepCard: Identifiable {
     let description: String
 }
 
-// MARK: - Step Card View
+// MARK: - Step Card View (unchanged)
 struct StepCardView: View {
     let step: StepCard
     
@@ -400,65 +326,5 @@ struct StepCardView: View {
         .background(Color.white)
         .cornerRadius(16)
         .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
-    }
-}
-
-// MARK: - Recruit Row
-struct RecruitRow: View {
-    let recruit: Recruit
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            if let profilePictureUrl = recruit.profilePictureUrl,
-               !profilePictureUrl.isEmpty {
-                AsyncImage(url: URL(string: profilePictureUrl)) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 44, height: 44)
-                        .clipShape(Circle())
-                } placeholder: {
-                    initialsAvatar
-                }
-            } else {
-                initialsAvatar
-            }
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(recruit.displayName)
-                    .font(.system(size: 16, weight: .semibold))
-            }
-            
-            Spacer()
-            
-            Text("$\(Double(recruit.storiesCompleted) * 5.0, specifier: "%.2f")")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.green)
-            
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.gray)
-        }
-        .padding(12)
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(8)
-    }
-    
-    private var initialsAvatar: some View {
-        ZStack {
-            Circle()
-                .fill(Color.blue.opacity(0.1))
-                .frame(width: 44, height: 44)
-            Text(getInitials())
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.blue)
-        }
-    }
-    
-    private func getInitials() -> String {
-        let firstNameInitial = recruit.firstName.prefix(1)
-        let lastNameInitial = recruit.lastName.prefix(1)
-        if firstNameInitial.isEmpty && lastNameInitial.isEmpty { return "?" }
-        return "\(firstNameInitial)\(lastNameInitial)".uppercased()
     }
 }
