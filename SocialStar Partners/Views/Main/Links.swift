@@ -10,6 +10,7 @@ struct LinksView: View {
     @State private var showBlockedAlert = false
     @State private var dailyLinksRemaining: Int? = nil
     @State private var blockReason: String = ""
+    @State private var isCreatingLink = false
     
     var body: some View {
         NavigationView {
@@ -53,7 +54,7 @@ struct LinksView: View {
                                     .background(canCreateLinks ? Color.blue : Color.gray)
                                     .cornerRadius(200)
                                 }
-                                .disabled(viewModel.isLoading || !canCreateLinks)
+                                .disabled(viewModel.isLoading || !canCreateLinks || isCreatingLink)
                                 .opacity((viewModel.isLoading || !canCreateLinks) ? 0.6 : 1.0)
                                 .padding(.top)
                             }
@@ -114,7 +115,7 @@ struct LinksView: View {
                             .font(.title2)
                             .foregroundColor(canCreateLinks ? Color.blue : Color.gray)
                     }
-                    .disabled(viewModel.isLoading || !canCreateLinks)
+                    .disabled(viewModel.isLoading || !canCreateLinks || isCreatingLink)
                 }
             }
         }
@@ -180,6 +181,7 @@ struct LinksView: View {
     
     // Helper function to handle link creation with block check
     private func createLinkWithBlockCheck(source: String) {
+        guard !isCreatingLink else { return }
         guard canCreateLinks else {
             blockReason = "Link creation is currently paused for your account. Please contact support for assistance."
             showBlockedAlert = true
@@ -191,8 +193,11 @@ struct LinksView: View {
             return
         }
         
+        isCreatingLink = true
+        
         // Check daily limit before proceeding
         viewModel.checkDailyLimit { canCreate, remaining in
+            defer { isCreatingLink = false }
             dailyLinksRemaining = remaining
             
             if !canCreate {
