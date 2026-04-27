@@ -109,6 +109,42 @@ struct SettingsView: View {
                             }
                             .padding(.vertical, 8)
                             
+                            // Bonus Photo Section
+                            VStack(spacing: 12) {
+                                HStack {
+                                    Text("Bonus Photo")
+                                        .font(.system(.subheadline))
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 16)
+
+                                NavigationLink(destination: UnseenPhotoView(unseenPhotoUrl: viewModel.unseenPhotoUrl)) {
+                                    HStack(spacing: 12) {
+                                        Text(viewModel.unseenPhotoUrl != nil ? "Change Bonus Photo" : "Upload Bonus Photo")
+                                            .font(.system(.body))
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.primary)
+                                        
+                                        Spacer()
+                                        
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(.caption, weight: .semibold))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 18)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color.gray.opacity(0.1))
+                                    .cornerRadius(8)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                                .padding(.horizontal, 16)
+                            }
+                            .padding(.vertical, 8)
+
                             CustomTextField(
                                 title: "First Name",
                                 text: $viewModel.firstName
@@ -239,7 +275,8 @@ struct SettingsView: View {
                     properties: [
                         "user_email": viewModel.email.isEmpty ? "not_loaded" : "loaded",
                         "has_user_data": !viewModel.firstName.isEmpty || !viewModel.lastName.isEmpty,
-                        "has_profile_picture": !(viewModel.profilePictureUrl?.isEmpty ?? true)
+                        "has_profile_picture": !(viewModel.profilePictureUrl?.isEmpty ?? true),
+                        "has_unseen_photo": !(viewModel.unseenPhotoUrl?.isEmpty ?? true)
                     ]
                 )
                 
@@ -533,7 +570,10 @@ class SettingsViewModel: ObservableObject {
     @Published var successMessage = ""
     @Published var showSignOutConfirmation = false
     @Published var showDeleteAccountConfirmation = false
-    
+
+    // Unseen photo
+    @Published var unseenPhotoUrl: String?
+
     private var originalFirstName = ""
     private var originalLastName = ""
     private let db = Firestore.firestore()
@@ -562,6 +602,7 @@ class SettingsViewModel: ObservableObject {
                     self?.firstName = data["firstName"] as? String ?? ""
                     self?.lastName = data["lastName"] as? String ?? ""
                     self?.profilePictureUrl = data["profilePictureUrl"] as? String
+                    self?.unseenPhotoUrl = data["unseenPhotoUrl"] as? String
                     self?.originalFirstName = self?.firstName ?? ""
                     self?.originalLastName = self?.lastName ?? ""
                     
@@ -573,6 +614,7 @@ class SettingsViewModel: ObservableObject {
                             "has_first_name": !(self?.firstName.isEmpty ?? true),
                             "has_last_name": !(self?.lastName.isEmpty ?? true),
                             "has_profile_picture": !(self?.profilePictureUrl?.isEmpty ?? true),
+                            "has_unseen_photo": !(self?.unseenPhotoUrl?.isEmpty ?? true),
                             "email_domain": self?.email.components(separatedBy: "@").last ?? "unknown"
                         ]
                     )
@@ -647,7 +689,8 @@ class SettingsViewModel: ObservableObject {
                 
                 // Update local data
                 self?.profilePictureUrl = url
-                self?.profileImage = nil // Clear the local image to use the URL
+                self?.profileImage = nil
+                self?.selectedItem = nil
                 self?.successMessage = "Profile picture updated successfully"
                 
                 // Analytics: Track profile picture update
