@@ -128,7 +128,7 @@ struct RecruitView: View {
                             VStack(spacing: 8) {
                                 Text("No Recruits Yet")
                                     .font(.system(size: 16, weight: .semibold))
-                                Text("Share your link to start earning $10 per recruit")
+                                Text("Share your link to start earning $5 per recruit")
                                     .font(.system(size: 14))
                                     .foregroundColor(.gray)
                                     .multilineTextAlignment(.center)
@@ -162,7 +162,7 @@ struct RecruitView: View {
     private var stepCards: [StepCard] {
         [
             StepCard(id: 1, icon: "link", title: "Share Link", description: "Share your recruit link with friends"),
-            StepCard(id: 2, icon: "dollarsign", title: "Earn $10", description: "When they get 10 total ratings")
+            StepCard(id: 2, icon: "dollarsign", title: "Earn $5", description: "When they get 10 total ratings")
         ]
     }
     
@@ -222,7 +222,7 @@ struct RecruitRow: View {
                 
                 // Earnings display
                 if recruit.hasEarnedBonus {
-                    Text("$10.00")
+                    Text("$5.00")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.green)
                 } else {

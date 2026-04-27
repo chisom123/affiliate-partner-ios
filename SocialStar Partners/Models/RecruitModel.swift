@@ -8,7 +8,7 @@ struct Recruit: Identifiable {
     var email: String
     let joinedAt: Date
     let totalRatings: Int           // Lifetime ratings (new)
-    let hasEarnedBonus: Bool        // Did recruiter get $10 yet? (new)
+    let hasEarnedBonus: Bool        // Did recruiter get $5 yet? (new)
     let bonusPaidAt: Date?          // When bonus was paid (new)
     let lastRatingAt: Date?
     var profilePictureUrl: String?
@@ -35,7 +35,7 @@ struct Recruit: Identifiable {
     }
     
     var bonusEarned: Double {
-        hasEarnedBonus ? 10.00 : 0.00
+        hasEarnedBonus ? 5.00 : 0.00
     }
     
     init?(documentID: String, data: [String: Any]) {
