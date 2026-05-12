@@ -1,49 +1,16 @@
 import SwiftUI
-import FirebaseAuth
 import PhotosUI
 import FirebaseStorage
 import FirebaseFirestore
+import FirebaseAuth
 
 struct ProfileCompletionView: View {
-    @State private var currentStep = 0
+    // Steps: 1 = email, 2 = profile picture
+    @State private var currentStep = 1
 
-    // Explainer state
-    @State private var explainerStep = 0
-    @State private var calculatorRatings = 30.0
-    @StateObject private var pricingCalculator = AffiliatePricingCalculator.shared
-
-    private let explainerSteps: [ExplainerStep] = [
-        ExplainerStep(
-            imageName: "explain1",
-            title: "Add Rating Link",
-            description: "Simply add our link to your Instagram story",
-            showCalculator: false
-        ),
-        ExplainerStep(
-            imageName: "explain2",
-            title: "Get Ratings",
-            description: "Your followers tap the link and rate your story",
-            showCalculator: false
-        ),
-        ExplainerStep(
-            imageName: "",
-            title: "Get Paid",
-            description: "",
-            showCalculator: true
-        )
-    ]
-
-    // Phone state
-    private let countries: [(name: String, code: String, flag: String)] = [
-        ("United States", "+1", "🇺🇸"),
-        ("United Kingdom", "+44", "🇬🇧")
-    ]
-    @State private var selectedCountryIndex = 0
-    @State private var phoneNumber = ""
-    @State private var verificationID = ""
-    @State private var otpCode = ""
-    @State private var resendCooldown = 0
-    @State private var cooldownTimer: Timer?
+    // Email state
+    @State private var email = ""
+    @State private var emailError = ""
 
     // Profile picture state
     @State private var selectedItem: PhotosPickerItem?
@@ -52,72 +19,61 @@ struct ProfileCompletionView: View {
     @State private var isLoading = false
     @State private var errorMessage = ""
 
-    private var selectedCountry: (name: String, code: String, flag: String) {
-        countries[selectedCountryIndex]
+    private var progressValue: CGFloat {
+        CGFloat(currentStep) / 2.0
     }
 
-    private var fullPhoneNumber: String {
-        var digits = phoneNumber.trimmingCharacters(in: .whitespaces)
-        if selectedCountry.code == "+44" {
-            digits = digits.hasPrefix("0") ? String(digits.dropFirst()) : digits
-        }
-        return "\(selectedCountry.code)\(digits)"
-    }
-
-    private var isPhoneValid: Bool {
-        phoneNumber.filter(\.isNumber).count >= 9
-    }
-
-    private var isCodeComplete: Bool {
-        otpCode.filter(\.isNumber).count == 6
+    private var isEmailValid: Bool {
+        email.contains("@") && email.contains(".")
     }
 
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(height: 6)
+                            .cornerRadius(3)
 
-                // Progress bar — hidden on explainer step
-                if currentStep > 0 {
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            Rectangle()
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(height: 6)
-                                .cornerRadius(3)
-
-                            Rectangle()
-                                .fill(Color.blue)
-                                .frame(width: geometry.size.width * progressValue, height: 6)
-                                .cornerRadius(3)
-                                .animation(.easeInOut, value: currentStep)
-                        }
+                        Rectangle()
+                            .fill(Color.blue)
+                            .frame(width: geometry.size.width * progressValue, height: 6)
+                            .cornerRadius(3)
+                            .animation(.easeInOut, value: currentStep)
                     }
-                    .frame(height: 6)
-                    .padding(.horizontal)
-                    .padding(.top, 20)
                 }
+                .frame(height: 6)
+                .padding(.horizontal)
+                .padding(.top, 20)
 
                 Group {
                     switch currentStep {
-                    case 0:
-                        explainerStepView
                     case 1:
-                        phoneEntryStep
+                        emailStep
                     case 2:
-                        phoneVerificationStep
-                    case 3:
                         profilePictureStep
                     default:
                         EmptyView()
                     }
                 }
             }
-            .navigationTitle(currentStep == 0 ? "" : "Complete Your Profile")
+            .navigationTitle("Complete Your Profile")
             .navigationBarTitleDisplayMode(.inline)
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
-            NotificationCenter.default.post(name: .profileIncomplete, object: nil)
+            Analytics.shared.trackScreen(name: "profile_completion")
+        }
+        .onChange(of: currentStep) { newStep in
+            Analytics.shared.track(
+                event: "profile_completion_step_viewed",
+                properties: [
+                    AnalyticsProperty.screenName: "profile_completion",
+                    "step_number": newStep
+                ]
+            )
         }
         .onChange(of: selectedItem) { newItem in
             Task {
@@ -129,343 +85,79 @@ struct ProfileCompletionView: View {
                 }
             }
         }
-        .onDisappear {
-            cooldownTimer?.invalidate()
-        }
     }
 
-    private var progressValue: CGFloat {
-        CGFloat(currentStep) / 3.0
-    }
-
-    // MARK: - Explainer Step (step 0)
-    private var explainerStepView: some View {
-        VStack(spacing: 0) {
-            // Progress dots
-            HStack(spacing: 8) {
-                ForEach(0..<explainerSteps.count, id: \.self) { index in
-                    Capsule()
-                        .fill(index == explainerStep ? Color.blue : Color.gray.opacity(0.3))
-                        .frame(height: 4)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 20)
-
-            Spacer()
-
-            // Step content
-            VStack(spacing: 32) {
-                if explainerSteps[explainerStep].showCalculator {
-                    calculatorView
-                } else {
-                    Image(explainerSteps[explainerStep].imageName)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxHeight: 400)
-                        .cornerRadius(12)
-                        .overlay(
-                            Group {
-                                if explainerStep == 1 {
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.gray.opacity(0.3), lineWidth: 2)
-                                }
-                            }
-                        )
-                        .padding(.horizontal, 24)
-                }
-
-                Text(explainerSteps[explainerStep].title)
-                    .font(.system(size: 28, weight: .bold))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-
-                if !explainerSteps[explainerStep].showCalculator {
-                    Text(explainerSteps[explainerStep].description)
-                        .font(.system(size: 17, weight: .regular))
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(6)
-                        .padding(.horizontal, 40)
-                } else {
-                    Text("Make \(pricingCalculator.formatEarnings(pricingCalculator.getEarningsPerRating())) every time your story is rated")
-                        .font(.system(size: 17, weight: .regular))
-                        .foregroundColor(.gray)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(6)
-                        .padding(.horizontal, 40)
-                }
-            }
-            .id(explainerStep)
-            .transition(.asymmetric(
-                insertion: .move(edge: .trailing).combined(with: .opacity),
-                removal: .move(edge: .leading).combined(with: .opacity)
-            ))
-
-            Spacer()
-
-            VStack(spacing: 16) {
-                if explainerStep < explainerSteps.count - 1 {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            explainerStep += 1
-                        }
-                    }) {
-                        Text("Next")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(Color.blue)
-                            .cornerRadius(8)
-                    }
-                    .padding(.horizontal, 24)
-                } else {
-                    Button(action: {
-                        currentStep = 1
-                    }) {
-                        Text("Get Started")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .background(Color.blue)
-                            .cornerRadius(8)
-                    }
-                    .padding(.horizontal, 24)
-                }
-            }
-            .padding(.bottom, 40)
-        }
-        .background(Color.white)
-    }
-
-    // MARK: - Calculator View (reused from ProgramExplainerView)
-    private var calculatorView: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 15) {
-                HStack {
-                    Text("Number of Ratings")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.secondary)
-
-                    Spacer()
-
-                    Text("\(Int(calculatorRatings))")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.primary)
-                }
-
-                calculatorSlider
-            }
-            .padding(.horizontal, 10)
-            .padding()
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(12, corners: [.topLeft, .topRight])
-
-            VStack(spacing: 8) {
-                Text("Story Earnings")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.gray)
-
-                Text(pricingCalculator.formatEarnings(calculatorRatings * pricingCalculator.getEarningsPerRating()))
-                    .font(.system(size: 48, weight: .bold))
-                    .foregroundColor(.green)
-            }
-            .padding(.vertical, 20)
-            .frame(maxWidth: .infinity)
-            .background(Color.green.opacity(0.1))
-            .cornerRadius(12, corners: [.bottomLeft, .bottomRight])
-        }
-        .padding(.horizontal, 24)
-    }
-
-    private var calculatorSlider: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(height: 6)
-
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.blue)
-                    .frame(width: geometry.size.width * CGFloat((calculatorRatings - 10) / (100 - 10)), height: 6)
-
-                Circle()
-                    .fill(Color.blue)
-                    .frame(width: 22, height: 22)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white, lineWidth: 2.5)
-                    )
-                    .offset(x: geometry.size.width * CGFloat((calculatorRatings - 10) / (100 - 10)) - 12)
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                let percent = max(0, min(1, value.location.x / geometry.size.width))
-                                let newValue = 10 + (percent * (100 - 10))
-                                calculatorRatings = round(newValue / 10) * 10
-                            }
-                    )
-            }
-        }
-        .frame(height: 24)
-    }
-
-    // MARK: - Phone Entry Step (step 1)
-    private var phoneEntryStep: some View {
+    // MARK: - Email Step (step 1)
+    private var emailStep: some View {
         VStack(spacing: 30) {
             Spacer()
 
             VStack(spacing: 12) {
-                Text("Verify Your Number")
+                Text("What's your email?")
                     .font(.system(size: 24, weight: .bold))
 
-                Text("We need to verify your phone number to keep your account secure.")
+                Text("We'll use this to send you important account updates.")
                     .font(.system(size: 15))
                     .foregroundColor(.gray)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)
             }
 
-            HStack(spacing: 0) {
-                Menu {
-                    ForEach(countries.indices, id: \.self) { index in
-                        Button(action: {
-                            selectedCountryIndex = index
-                            phoneNumber = ""
-                        }) {
-                            Text("\(countries[index].flag)  \(countries[index].name) (\(countries[index].code))")
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(selectedCountry.flag)
-                            .font(.system(size: 22))
-                        Text(selectedCountry.code)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.primary)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.gray)
-                    }
-                    .padding(.horizontal, 12)
-                    .frame(height: 48)
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
-                }
-
-                Spacer().frame(width: 10)
-
-                TextField(selectedCountry.code == "+1" ? "(555) 000-0000" : "07700 900000", text: $phoneNumber)
-                    .keyboardType(.phonePad)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 12)
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
-            }
-            .padding(.horizontal)
-
-            if !errorMessage.isEmpty {
-                Text(errorMessage)
-                    .foregroundColor(.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-            }
-
-            Spacer()
-
-            if isLoading {
-                ProgressView()
-            } else {
-                Button(action: sendVerificationCode) {
-                    Text("Send Code")
-                        .frame(maxWidth: .infinity)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.vertical, 14)
-                        .background(isPhoneValid ? Color.blue : Color.gray.opacity(0.5))
-                        .cornerRadius(8)
-                }
-                .disabled(!isPhoneValid)
-                .padding(.horizontal)
-            }
-        }
-        .padding(.vertical, 30)
-        .background(Color.gray.opacity(0.05))
-        .cornerRadius(6)
-        .padding()
-    }
-
-    // MARK: - Phone Verification Step (step 2)
-    private var phoneVerificationStep: some View {
-        VStack(spacing: 30) {
-            Spacer()
-
-            VStack(spacing: 12) {
-                Text("Enter Your Code")
-                    .font(.system(size: 24, weight: .bold))
-
-                Text("We sent a 6-digit code to\n\(fullPhoneNumber)")
-                    .font(.system(size: 15))
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-            }
-
-            TextField("6-digit code", text: $otpCode)
-                .keyboardType(.numberPad)
-                .multilineTextAlignment(.center)
-                .font(.system(size: 24, weight: .semibold))
+            TextField("Email", text: $email)
+                .frame(maxWidth: .infinity)
+                .keyboardType(.emailAddress)
+                .textInputAutocapitalization(.never)
                 .padding(.vertical, 12)
-                .padding(.horizontal, 16)
+                .padding(.leading, 10)
                 .background(Color.gray.opacity(0.1))
                 .cornerRadius(8)
                 .padding(.horizontal)
-                .onChange(of: otpCode) { newValue in
-                    let digits = newValue.filter(\.isNumber)
-                    otpCode = String(digits.prefix(6))
-                }
 
-            if !errorMessage.isEmpty {
-                Text(errorMessage)
+            if !emailError.isEmpty {
+                Text(emailError)
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
-            }
-
-            Group {
-                if resendCooldown > 0 {
-                    Text("Resend code in \(resendCooldown)s")
-                        .font(.system(size: 14))
-                        .foregroundColor(.gray)
-                } else {
-                    Button(action: sendVerificationCode) {
-                        Text("Resend Code")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.blue)
+                    .onAppear {
+                        Analytics.shared.trackError(
+                            message: emailError,
+                            properties: [AnalyticsProperty.screenName: "profile_completion_email"]
+                        )
                     }
-                }
             }
 
             Spacer()
 
-            if isLoading {
-                ProgressView()
-            } else {
-                Button(action: verifyCode) {
-                    Text("Verify")
-                        .frame(maxWidth: .infinity)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.vertical, 14)
-                        .background(isCodeComplete ? Color.blue : Color.gray.opacity(0.5))
-                        .cornerRadius(8)
+            Button(action: {
+                Analytics.shared.trackTap(
+                    elementId: "continue_button",
+                    screenName: "profile_completion_email",
+                    properties: ["form_valid": isEmailValid]
+                )
+                guard isEmailValid else {
+                    emailError = "Please enter a valid email address"
+                    Analytics.shared.track(
+                        event: "email_validation_failed",
+                        properties: [
+                            AnalyticsProperty.screenName: "profile_completion_email",
+                            "validation_error": "invalid_email_format"
+                        ]
+                    )
+                    return
                 }
-                .disabled(!isCodeComplete)
-                .padding(.horizontal)
+                emailError = ""
+                currentStep = 2
+            }) {
+                Text("Continue")
+                    .frame(maxWidth: .infinity)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.vertical, 14)
+                    .background(email.isEmpty ? Color.gray.opacity(0.5) : Color.blue)
+                    .cornerRadius(8)
             }
+            .disabled(email.isEmpty)
+            .padding(.horizontal)
         }
         .padding(.vertical, 30)
         .background(Color.gray.opacity(0.05))
@@ -473,7 +165,7 @@ struct ProfileCompletionView: View {
         .padding()
     }
 
-    // MARK: - Profile Picture Step (step 3)
+    // MARK: - Profile Picture Step (step 2)
     private var profilePictureStep: some View {
         VStack(spacing: 30) {
             Spacer()
@@ -528,7 +220,14 @@ struct ProfileCompletionView: View {
 
             Spacer()
 
-            Button(action: uploadProfilePicture) {
+            Button(action: {
+                Analytics.shared.trackTap(
+                    elementId: "complete_setup_button",
+                    screenName: "profile_completion_picture",
+                    properties: ["has_image": selectedImage != nil]
+                )
+                completeSetup()
+            }) {
                 Group {
                     if isLoading {
                         ProgressView()
@@ -554,94 +253,27 @@ struct ProfileCompletionView: View {
     }
 
     // MARK: - Actions
-    private func sendVerificationCode() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        isLoading = true
-        errorMessage = ""
-
-        PhoneAuthProvider.provider().verifyPhoneNumber(fullPhoneNumber, uiDelegate: nil) { verificationId, error in
-            DispatchQueue.main.async {
-                isLoading = false
-
-                if let error = error {
-                    errorMessage = friendlyPhoneError(error)
-                    return
-                }
-
-                guard let verificationId = verificationId else {
-                    errorMessage = "Something went wrong. Please try again."
-                    return
-                }
-
-                verificationID = verificationId
-                startCooldown()
-                currentStep = 2
-            }
-        }
-    }
-
-    private func verifyCode() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-        isLoading = true
-        errorMessage = ""
-
-        let credential = PhoneAuthProvider.provider().credential(
-            withVerificationID: verificationID,
-            verificationCode: otpCode
-        )
-
-        guard let currentUser = Auth.auth().currentUser else {
-            isLoading = false
+    private func completeSetup() {
+        guard let user = Auth.auth().currentUser else {
             errorMessage = "No user session found. Please restart the app."
             return
         }
 
-        currentUser.link(with: credential) { _, error in
-            DispatchQueue.main.async {
-                if let error = error {
-                    let code = (error as NSError).code
+        isLoading = true
+        errorMessage = ""
 
-                    if code == 17015 || code == 17025 {
-                        currentUser.reauthenticate(with: credential) { _, reauthError in
-                            DispatchQueue.main.async {
-                                isLoading = false
-                                if let reauthError = reauthError {
-                                    let reauthCode = (reauthError as NSError).code
-                                    if reauthCode == 17044 || reauthCode == 17045 {
-                                        errorMessage = "Your verification code has expired. Please go back and request a new one."
-                                    } else {
-                                        errorMessage = "Verification failed. Please try again."
-                                    }
-                                } else {
-                                    currentStep = 3
-                                }
-                            }
-                        }
-                        return
-                    }
-
-                    isLoading = false
-                    if code == 17044 || code == 17045 {
-                        errorMessage = "Your verification code has expired. Please go back and request a new one."
-                    } else {
-                        errorMessage = "Verification failed. Please try again."
-                    }
-                    return
-                }
-
-                isLoading = false
-                currentStep = 3
-            }
+        if let image = selectedImage {
+            uploadProfilePicture(image, for: user)
+        } else {
+            saveFirestoreDocument(for: user, profilePictureUrl: nil)
         }
     }
 
-    private func uploadProfilePicture() {
-        guard let user = Auth.auth().currentUser,
-              let image = selectedImage,
-              let imageData = image.optimizedForProfilePicture() else { return }
-
-        isLoading = true
-        errorMessage = ""
+    private func uploadProfilePicture(_ image: UIImage, for user: User) {
+        guard let imageData = image.optimizedForProfilePicture() else {
+            saveFirestoreDocument(for: user, profilePictureUrl: nil)
+            return
+        }
 
         let storageRef = Storage.storage().reference()
             .child("profile_pictures/\(user.uid)_\(UUID().uuidString).jpg")
@@ -651,8 +283,15 @@ struct ProfileCompletionView: View {
         storageRef.putData(imageData, metadata: metadata) { _, error in
             if let error = error {
                 DispatchQueue.main.async {
-                    self.errorMessage = "Failed to upload image: \(error.localizedDescription)"
-                    self.isLoading = false
+                    errorMessage = "Failed to upload image: \(error.localizedDescription)"
+                    isLoading = false
+                    Analytics.shared.track(
+                        event: "profile_picture_upload_failed",
+                        properties: [
+                            AnalyticsProperty.screenName: "profile_completion_picture",
+                            AnalyticsProperty.errorMessage: error.localizedDescription
+                        ]
+                    )
                 }
                 return
             }
@@ -660,49 +299,54 @@ struct ProfileCompletionView: View {
             storageRef.downloadURL { url, error in
                 if let error = error {
                     DispatchQueue.main.async {
-                        self.errorMessage = "Failed to get image URL: \(error.localizedDescription)"
-                        self.isLoading = false
+                        errorMessage = "Failed to get image URL: \(error.localizedDescription)"
+                        isLoading = false
+                        Analytics.shared.track(
+                            event: "profile_picture_url_failed",
+                            properties: [
+                                AnalyticsProperty.screenName: "profile_completion_picture",
+                                AnalyticsProperty.errorMessage: error.localizedDescription
+                            ]
+                        )
                     }
                     return
                 }
-
-                guard let url = url else { return }
-
-                Firestore.firestore().collection("affiliates").document(user.uid).updateData([
-                    "profilePictureUrl": url.absoluteString
-                ]) { error in
-                    DispatchQueue.main.async {
-                        self.isLoading = false
-
-                        if let error = error {
-                            self.errorMessage = "Failed to save profile picture: \(error.localizedDescription)"
-                            return
-                        }
-
-                        NotificationCenter.default.post(name: .profileCompleted, object: nil)
-                    }
-                }
+                saveFirestoreDocument(for: user, profilePictureUrl: url?.absoluteString)
             }
         }
     }
 
-    private func startCooldown() {
-        resendCooldown = 60
-        cooldownTimer?.invalidate()
-        cooldownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
+    private func saveFirestoreDocument(for user: User, profilePictureUrl: String?) {
+        Firestore.firestore().collection("affiliates").document(user.uid).updateData([
+            "email": email,
+            "profilePictureUrl": profilePictureUrl ?? NSNull()
+        ]) { error in
             DispatchQueue.main.async {
-                resendCooldown -= 1
-                if resendCooldown <= 0 { timer.invalidate() }
-            }
-        }
-    }
+                isLoading = false
 
-    private func friendlyPhoneError(_ error: Error) -> String {
-        let code = (error as NSError).code
-        switch code {
-        case 17010: return "Too many requests. Please wait a moment and try again."
-        case 17042: return "Invalid phone number. Please check and try again."
-        default: return "Couldn't send code. Please check your number and try again."
+                if let error = error {
+                    errorMessage = "Failed to save profile: \(error.localizedDescription)"
+                    Analytics.shared.track(
+                        event: "firestore_save_failed",
+                        properties: [
+                            AnalyticsProperty.screenName: "profile_completion_picture",
+                            AnalyticsProperty.errorMessage: error.localizedDescription
+                        ]
+                    )
+                    return
+                }
+
+                Analytics.shared.track(
+                    event: "profile_completed_successfully",
+                    properties: [
+                        AnalyticsProperty.screenName: "profile_completion_picture",
+                        "user_id": user.uid,
+                        "has_profile_picture": profilePictureUrl != nil
+                    ]
+                )
+
+                NotificationCenter.default.post(name: .profileCompleted, object: nil)
+            }
         }
     }
 }

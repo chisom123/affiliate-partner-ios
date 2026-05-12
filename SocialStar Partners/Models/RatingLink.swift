@@ -15,6 +15,8 @@ struct RatingLink: Identifiable {
     var ratingCount: Int
     var photoUrl: String?
     var theme: String?
+    var bonusPhotoUrl: String?
+    var photoAssetIdentifier: String?
     
     // NEW: Parlay amounts
     let parlayEntry: Int
@@ -46,6 +48,8 @@ extension RatingLink {
         self.ratingCount = 0
         self.photoUrl = data["photoUrl"] as? String
         self.theme = data["theme"] as? String // NEW: Load theme
+        self.bonusPhotoUrl = data["bonusPhotoUrl"] as? String
+        self.photoAssetIdentifier = data["photoAssetIdentifier"] as? String
         
         // NEW: Initialize parlay amounts with fallback values
         self.parlayEntry = data["parlayEntry"] as? Int ?? 25

@@ -21,7 +21,7 @@ struct SettingsView: View {
                                 value: viewModel.email
                             )
                             
-                            CustomCaptionText("Your login email cannot be changed")
+                            CustomCaptionText("Used for account notifications")
                                 .padding(.bottom)
                         }
                     }
@@ -106,42 +106,6 @@ struct SettingsView: View {
                                 }
                                 .padding(.horizontal, 16)
                                 
-                            }
-                            .padding(.vertical, 8)
-                            
-                            // Bonus Photo Section
-                            VStack(spacing: 12) {
-                                HStack {
-                                    Text("Bonus Photo")
-                                        .font(.system(.subheadline))
-                                        .fontWeight(.medium)
-                                        .foregroundColor(.secondary)
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 16)
-
-                                NavigationLink(destination: UnseenPhotoView(unseenPhotoUrl: viewModel.unseenPhotoUrl)) {
-                                    HStack(spacing: 12) {
-                                        Text(viewModel.unseenPhotoUrl != nil ? "Change Bonus Photo" : "Upload Bonus Photo")
-                                            .font(.system(.body))
-                                            .fontWeight(.medium)
-                                            .foregroundColor(.primary)
-                                        
-                                        Spacer()
-                                        
-                                        Image(systemName: "chevron.right")
-                                            .font(.system(.caption, weight: .semibold))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 18)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(Color.gray.opacity(0.1))
-                                    .cornerRadius(8)
-                                    .contentShape(Rectangle())
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                                .padding(.horizontal, 16)
                             }
                             .padding(.vertical, 8)
 
@@ -591,8 +555,6 @@ class SettingsViewModel: ObservableObject {
     func loadUserData() {
         guard let user = Auth.auth().currentUser else { return }
         
-        email = user.email ?? "Unknown"
-        
         db.collection("affiliates").document(user.uid).getDocument { [weak self] document, error in
             DispatchQueue.main.async {
                 if let document = document,
@@ -605,6 +567,7 @@ class SettingsViewModel: ObservableObject {
                     self?.unseenPhotoUrl = data["unseenPhotoUrl"] as? String
                     self?.originalFirstName = self?.firstName ?? ""
                     self?.originalLastName = self?.lastName ?? ""
+                    self?.email = data["email"] as? String ?? "Unknown"
                     
                     // Analytics: Track user data load success
                     Analytics.shared.track(

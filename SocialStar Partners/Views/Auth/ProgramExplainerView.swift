@@ -2,12 +2,15 @@ import SwiftUI
 
 struct ProgramExplainerView: View {
     @State private var currentStep = 0
-    @State private var navigateToEmail = false
+    @State private var navigateToPhone = false
     @State private var calculatorRatings = 30.0
     @StateObject private var pricingCalculator = AffiliatePricingCalculator.shared
-    
+
     private var steps: [ExplainerStep] {
-        [
+        let earningsPerRating = pricingCalculator.getEarningsPerRating()
+        let formattedEarnings = pricingCalculator.formatEarnings(earningsPerRating)
+
+        return [
             ExplainerStep(
                 imageName: "explain1",
                 title: "Add Rating Link",
@@ -23,12 +26,12 @@ struct ProgramExplainerView: View {
             ExplainerStep(
                 imageName: "",
                 title: "Get Paid",
-                description: "Make \(pricingCalculator.formatEarnings(pricingCalculator.getEarningsPerRating())) every time your story is rated",
+                description: "Make \(formattedEarnings) every time your story is rated",
                 showCalculator: true
             )
         ]
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
             // Progress indicator
@@ -42,23 +45,20 @@ struct ProgramExplainerView: View {
             }
             .padding(.horizontal, 24)
             .padding(.top, 20)
-            
+
             Spacer()
-            
+
             // Step content
             VStack(spacing: 32) {
                 if steps[currentStep].showCalculator {
-                    // Calculator view for step 3
                     calculatorView
                 } else {
-                    // Screenshot Image for steps 1 & 2
                     Image(steps[currentStep].imageName)
                         .resizable()
                         .scaledToFit()
                         .frame(maxHeight: 400)
                         .cornerRadius(12)
                         .overlay(
-                            // Only add border if current step is 1 (second slide, 0-indexed)
                             Group {
                                 if currentStep == 1 {
                                     RoundedRectangle(cornerRadius: 12)
@@ -68,14 +68,12 @@ struct ProgramExplainerView: View {
                         )
                         .padding(.horizontal, 24)
                 }
-                
-                // Title
+
                 Text(steps[currentStep].title)
                     .font(.system(size: 28, weight: .bold))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
-                
-                // Description
+
                 Text(steps[currentStep].description)
                     .font(.system(size: 17, weight: .regular))
                     .foregroundColor(.gray)
@@ -83,20 +81,18 @@ struct ProgramExplainerView: View {
                     .lineSpacing(6)
                     .padding(.horizontal, 40)
             }
-            .id(currentStep) // Force view refresh for animation
+            .id(currentStep)
             .transition(.asymmetric(
                 insertion: .move(edge: .trailing).combined(with: .opacity),
                 removal: .move(edge: .leading).combined(with: .opacity)
             ))
-            
+
             Spacer()
-            
+
             // Navigation button
             VStack(spacing: 16) {
                 if currentStep < steps.count - 1 {
-                    // Next button
                     Button(action: {
-                        // Analytics: Track next button tap
                         Analytics.shared.trackTap(
                             elementId: "next_button",
                             screenName: "program_explainer",
@@ -105,7 +101,6 @@ struct ProgramExplainerView: View {
                                 "step_title": steps[currentStep].title
                             ]
                         )
-                        
                         withAnimation(.easeInOut(duration: 0.3)) {
                             currentStep += 1
                         }
@@ -120,9 +115,7 @@ struct ProgramExplainerView: View {
                     }
                     .padding(.horizontal, 24)
                 } else {
-                    // Get Started button (final step)
                     Button(action: {
-                        // Analytics: Track get started button tap
                         Analytics.shared.trackTap(
                             elementId: "get_started_button",
                             screenName: "program_explainer",
@@ -133,8 +126,6 @@ struct ProgramExplainerView: View {
                                 "final_calculator_earnings": calculatorRatings * pricingCalculator.getEarningsPerRating()
                             ]
                         )
-                        
-                        // Analytics: Track explainer completion
                         Analytics.shared.track(
                             event: "program_explainer_completed",
                             properties: [
@@ -144,8 +135,7 @@ struct ProgramExplainerView: View {
                                 "final_calculator_earnings": calculatorRatings * pricingCalculator.getEarningsPerRating()
                             ]
                         )
-                        
-                        navigateToEmail = true
+                        navigateToPhone = true
                     }) {
                         Text("Get Started")
                             .font(.system(size: 18, weight: .bold))
@@ -159,9 +149,8 @@ struct ProgramExplainerView: View {
                 }
             }
             .padding(.bottom, 40)
-            
-            // Hidden Navigation Link
-            NavigationLink(destination: EmailEntryView(), isActive: $navigateToEmail) {
+
+            NavigationLink(destination: PhoneEntryView(), isActive: $navigateToPhone) {
                 EmptyView()
             }
             .hidden()
@@ -170,10 +159,7 @@ struct ProgramExplainerView: View {
         .navigationBarTitleDisplayMode(.inline)
         .tint(.black)
         .onAppear {
-            // Analytics: Track program explainer screen view
             Analytics.shared.trackScreen(name: "program_explainer")
-            
-            // Analytics: Track first step view
             Analytics.shared.track(
                 event: "explainer_step_viewed",
                 properties: [
@@ -184,7 +170,6 @@ struct ProgramExplainerView: View {
             )
         }
         .onChange(of: currentStep) { newStep in
-            // Analytics: Track step changes
             Analytics.shared.track(
                 event: "explainer_step_viewed",
                 properties: [
@@ -195,7 +180,6 @@ struct ProgramExplainerView: View {
             )
         }
         .onDisappear {
-            // Analytics: Track if user left before completing
             if currentStep < steps.count - 1 {
                 Analytics.shared.track(
                     event: "program_explainer_abandoned",
@@ -211,37 +195,35 @@ struct ProgramExplainerView: View {
             }
         }
     }
-    
-    // Calculator View (for step 3)
+
+    // MARK: - Calculator View
     private var calculatorView: some View {
-        VStack(spacing: 0) { // Changed from 20 to 0
-            // Ratings slider section
+        VStack(spacing: 0) {
             VStack(spacing: 15) {
                 HStack {
                     Text("Number of Ratings")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(.secondary)
-                    
+
                     Spacer()
-                    
+
                     Text("\(Int(calculatorRatings))")
                         .font(.system(size: 20, weight: .bold))
                         .foregroundColor(.primary)
                 }
-                
+
                 calculatorSlider
             }
             .padding(.horizontal, 10)
             .padding()
             .background(Color.gray.opacity(0.1))
-            .cornerRadius(12, corners: [.topLeft, .topRight]) // Only round top corners
-            
-            // Earnings display - large and prominent
+            .cornerRadius(12, corners: [.topLeft, .topRight])
+
             VStack(spacing: 8) {
                 Text("Story Earnings")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(.gray)
-                
+
                 Text(pricingCalculator.formatEarnings(calculatorRatings * pricingCalculator.getEarningsPerRating()))
                     .font(.system(size: 48, weight: .bold))
                     .foregroundColor(.green)
@@ -249,22 +231,22 @@ struct ProgramExplainerView: View {
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity)
             .background(Color.green.opacity(0.1))
-            .cornerRadius(12, corners: [.bottomLeft, .bottomRight]) // Only round bottom corners
+            .cornerRadius(12, corners: [.bottomLeft, .bottomRight])
         }
         .padding(.horizontal, 24)
     }
-    
+
     private var calculatorSlider: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color.gray.opacity(0.2))
                     .frame(height: 6)
-                
+
                 RoundedRectangle(cornerRadius: 4)
                     .fill(Color.blue)
                     .frame(width: geometry.size.width * CGFloat((calculatorRatings - 10) / (100 - 10)), height: 6)
-                
+
                 Circle()
                     .fill(Color.blue)
                     .frame(width: 22, height: 22)
@@ -305,7 +287,6 @@ struct ExplainerStep {
     let showCalculator: Bool
 }
 
-// Add this extension at the bottom of your file, outside the ProgramExplainerView struct
 extension View {
     func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
         clipShape(RoundedCorner(radius: radius, corners: corners))
@@ -315,7 +296,7 @@ extension View {
 struct RoundedCorner: Shape {
     var radius: CGFloat = .infinity
     var corners: UIRectCorner = .allCorners
-    
+
     func path(in rect: CGRect) -> Path {
         let path = UIBezierPath(
             roundedRect: rect,

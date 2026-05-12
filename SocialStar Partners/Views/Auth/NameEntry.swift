@@ -1,29 +1,17 @@
 import SwiftUI
-import Firebase
-import FirebaseAuth
-import FirebaseFirestore
-
-extension Notification.Name {
-    static let authStateDidChange = Notification.Name("authStateDidChange")
-    static let profileIncomplete = Notification.Name("profileIncomplete")
-    static let profileCompleted = Notification.Name("profileCompleted")
-}
 
 struct NameView: View {
-    let email: String
-    let password: String
-    
+    let phoneNumber: String
+
     @State private var firstName = ""
     @State private var lastName = ""
-    @State private var isLoading = false
-    @State private var errorMessage = ""
-    @State private var navigateToPhone = false
-    
+    @State private var navigateToEmail = false
+
     var body: some View {
         VStack(spacing: 30) {
             Text("What's your name?")
                 .font(.system(size: 24, weight: .bold))
-            
+
             VStack(spacing: 15) {
                 TextField("First Name", text: $firstName)
                     .frame(maxWidth: .infinity)
@@ -32,7 +20,7 @@ struct NameView: View {
                     .padding(.leading, 10)
                     .background(Color.gray.opacity(0.1))
                     .cornerRadius(8)
-                
+
                 TextField("Last Name", text: $lastName)
                     .frame(maxWidth: .infinity)
                     .textInputAutocapitalization(.words)
@@ -42,64 +30,40 @@ struct NameView: View {
                     .cornerRadius(8)
             }
             .padding(.horizontal)
-            
-            if !errorMessage.isEmpty {
-                Text(errorMessage)
-                    .foregroundColor(.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-                    .onAppear {
-                        // Analytics: Track signup error
-                        Analytics.shared.trackError(
-                            message: errorMessage,
-                            properties: [
-                                AnalyticsProperty.screenName: "name_entry"
-                            ]
-                        )
-                    }
-            }
-            
-            if isLoading {
-                ProgressView()
-            } else {
-                Button(action: {
-                    // Analytics: Track account creation attempt
-                    Analytics.shared.trackTap(
-                        elementId: "continue_to_phone_button",
-                        screenName: "name_entry",
-                        properties: [
-                            "form_valid": !firstName.isEmpty && !lastName.isEmpty
-                        ]
+
+            Button(action: {
+                Analytics.shared.trackTap(
+                    elementId: "continue_button",
+                    screenName: "name_entry",
+                    properties: [
+                        "form_valid": !firstName.isEmpty && !lastName.isEmpty
+                    ]
+                )
+                navigateToEmail = true
+            }) {
+                Text("Continue")
+                    .frame(maxWidth: .infinity)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 12)
+                    .background(
+                        (firstName.isEmpty || lastName.isEmpty) ?
+                        Color.gray.opacity(0.5) :
+                        Color.blue
                     )
-                    
-                    navigateToPhone = true
-                }) {
-                    Text("Continue")
-                        .frame(maxWidth: .infinity)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 32)
-                        .padding(.vertical, 12)
-                        .background(
-                            (firstName.isEmpty || lastName.isEmpty) ?
-                            Color.gray.opacity(0.5) :
-                            Color.blue
-                        )
-                        .cornerRadius(8)
-                }
-                .disabled(firstName.isEmpty || lastName.isEmpty)
-                .padding(.horizontal)
+                    .cornerRadius(8)
             }
-            
-            // Navigation Link to Phone Entry ← was ProfilePictureView
+            .disabled(firstName.isEmpty || lastName.isEmpty)
+            .padding(.horizontal)
+
             NavigationLink(
-                destination: PhoneEntryView(
-                    email: email,
-                    password: password,
+                destination: EmailEntryView(
+                    phoneNumber: phoneNumber,
                     firstName: firstName,
                     lastName: lastName
                 ),
-                isActive: $navigateToPhone
+                isActive: $navigateToEmail
             ) {
                 EmptyView()
             }
@@ -113,7 +77,6 @@ struct NameView: View {
         .navigationBarTitleDisplayMode(.inline)
         .tint(.black)
         .onAppear {
-            // Analytics: Track name entry screen view
             Analytics.shared.trackScreen(name: "name_entry")
         }
     }

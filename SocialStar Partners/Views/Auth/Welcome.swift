@@ -1,26 +1,22 @@
 import SwiftUI
 
 struct WelcomeView: View {
-    @State private var navigateToEmail = false
-    @State private var navigateToSignIn = false
-    
+    @State private var navigateToExplainer = false
+
     var body: some View {
         NavigationView {
             GeometryReader { geometry in
                 VStack(spacing: 0) {
-                    // Top section with logo and text
                     VStack(spacing: 24) {
                         Spacer()
                             .frame(height: 80)
-                        
-                        // Logo
+
                         Image("Logo")
                             .resizable()
                             .scaledToFit()
                             .frame(width: 75, height: 75)
                             .clipShape(RoundedRectangle(cornerRadius: 5))
-                        
-                        // Headlines
+
                         VStack(spacing: 12) {
                             Text("Welcome to SocialStar Partners")
                                 .font(.system(size: 28, weight: .bold))
@@ -30,67 +26,39 @@ struct WelcomeView: View {
                                 .minimumScaleFactor(0.8)
                         }
                         .padding(.horizontal, 32)
-                        
+
                         Spacer()
                     }
-                    
-                    // Bottom section with buttons
-                    VStack(spacing: 20) {
-                        HStack(spacing: 16) {
-                            // Sign Up Button
-                            Button(action: {
-                                // Analytics: Track sign up button tap
-                                Analytics.shared.trackTap(
-                                    elementId: "sign_up_button",
-                                    screenName: "welcome"
-                                )
-                                
-                                navigateToEmail = true
-                            }) {
-                                Text("Sign Up")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 52)
-                                    .background(Color.blue)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                            }
-                            
-                            // Sign In Button
-                            Button(action: {
-                                // Analytics: Track log in button tap
-                                Analytics.shared.trackTap(
-                                    elementId: "log_in_button",
-                                    screenName: "welcome"
-                                )
-                                
-                                navigateToSignIn = true
-                            }) {
-                                Text("Log In")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(Color.blue)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 52)
-                                    .background(Color.clear)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(Color.blue, lineWidth: 3)
-                                    )
-                            }
+
+                    VStack(spacing: 16) {
+                        DisclaimerText()
+                        
+                        Button(action: {
+                            Analytics.shared.trackTap(
+                                elementId: "welcome_continue_button",
+                                screenName: "welcome"
+                            )
+                            navigateToExplainer = true
+                        }) {
+                            Text("Continue")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 52)
+                                .background(Color.blue)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                         .padding(.horizontal, 24)
+                        .padding(.top)
                         
                         Spacer()
                             .frame(height: 50)
                     }
-                    
-                    // Hidden Navigation Links
-                    NavigationLink(destination: ProgramExplainerView(), isActive: $navigateToEmail) {
-                        EmptyView()
-                    }
-                    .hidden()
-                    
-                    NavigationLink(destination: SignInView(), isActive: $navigateToSignIn) {
+
+                    NavigationLink(
+                        destination: ProgramExplainerView(),
+                        isActive: $navigateToExplainer
+                    ) {
                         EmptyView()
                     }
                     .hidden()
@@ -101,7 +69,6 @@ struct WelcomeView: View {
         }
         .navigationViewStyle(StackNavigationViewStyle())
         .onAppear {
-            // Analytics: Track welcome screen view
             Analytics.shared.trackScreen(name: "welcome")
         }
     }

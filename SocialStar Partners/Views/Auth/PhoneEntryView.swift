@@ -2,17 +2,11 @@ import SwiftUI
 import FirebaseAuth
 
 struct PhoneEntryView: View {
-    let email: String
-    let password: String
-    let firstName: String
-    let lastName: String
-
     private let countries: [(name: String, code: String, flag: String)] = [
         ("United States", "+1", "🇺🇸"),
         ("United Kingdom", "+44", "🇬🇧")
     ]
     @State private var selectedCountryIndex = 0
-
     @State private var phoneNumber = ""
     @State private var isLoading = false
     @State private var errorMessage = ""
@@ -37,10 +31,10 @@ struct PhoneEntryView: View {
 
     var body: some View {
         VStack(spacing: 30) {
-            Text("Verify Your Number")
+            Text("Enter Your Number")
                 .font(.system(size: 24, weight: .bold))
 
-            Text("We'll send a one-time code to confirm your number.")
+            Text("We'll send a one-time code to verify your identity.")
                 .font(.system(size: 15))
                 .foregroundColor(.gray)
                 .multilineTextAlignment(.center)
@@ -75,14 +69,16 @@ struct PhoneEntryView: View {
 
                 Spacer().frame(width: 10)
 
-                TextField(selectedCountry.code == "+1" ? "(555) 000-0000" : "07700 900000",
-                          text: $phoneNumber)
-                    .keyboardType(.phonePad)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 12)
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(8)
+                TextField(
+                    selectedCountry.code == "+1" ? "(555) 000-0000" : "07700 900000",
+                    text: $phoneNumber
+                )
+                .keyboardType(.phonePad)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(8)
             }
             .padding(.horizontal)
 
@@ -91,12 +87,6 @@ struct PhoneEntryView: View {
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
-                    .onAppear {
-                        Analytics.shared.trackError(
-                            message: errorMessage,
-                            properties: [AnalyticsProperty.screenName: "phone_entry"]
-                        )
-                    }
             }
 
             if isLoading {
@@ -118,10 +108,6 @@ struct PhoneEntryView: View {
 
             NavigationLink(
                 destination: PhoneVerificationView(
-                    email: email,
-                    password: password,
-                    firstName: firstName,
-                    lastName: lastName,
                     phoneNumber: fullPhoneNumber,
                     verificationID: verificationID
                 ),
@@ -144,7 +130,10 @@ struct PhoneEntryView: View {
     }
 
     private func sendVerificationCode() {
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil, from: nil, for: nil
+        )
         isLoading = true
         errorMessage = ""
 
@@ -155,36 +144,29 @@ struct PhoneEntryView: View {
         )
 
         PhoneAuthProvider.provider().verifyPhoneNumber(fullPhoneNumber, uiDelegate: nil) { verificationId, error in
-            isLoading = false
+            DispatchQueue.main.async {
+                isLoading = false
 
-            if let error = error {
-                errorMessage = friendlyError(error)
-                Analytics.shared.track(
-                    event: "phone_verification_send_failed",
-                    properties: [
-                        AnalyticsProperty.screenName: "phone_entry",
-                        AnalyticsProperty.errorMessage: error.localizedDescription
-                    ]
-                )
-                return
+                if let error = error {
+                    errorMessage = friendlyError(error)
+                    Analytics.shared.track(
+                        event: "phone_verification_send_failed",
+                        properties: [
+                            AnalyticsProperty.screenName: "phone_entry",
+                            AnalyticsProperty.errorMessage: error.localizedDescription
+                        ]
+                    )
+                    return
+                }
+
+                guard let verificationId = verificationId else {
+                    errorMessage = "Something went wrong. Please try again."
+                    return
+                }
+
+                verificationID = verificationId
+                navigateToVerification = true
             }
-
-            guard let verificationId = verificationId else {
-                errorMessage = "Something went wrong. Please try again."
-                return
-            }
-
-            verificationID = verificationId
-
-            Analytics.shared.track(
-                event: "phone_verification_code_sent",
-                properties: [
-                    AnalyticsProperty.screenName: "phone_entry",
-                    "country_code": selectedCountry.code
-                ]
-            )
-
-            navigateToVerification = true
         }
     }
 
@@ -193,7 +175,7 @@ struct PhoneEntryView: View {
         switch code {
         case 17010: return "Too many requests. Please wait a moment and try again."
         case 17042: return "Invalid phone number. Please check and try again."
-        default:    return "Couldn't send code. Please check your number and try again."
+        default: return "Couldn't send code. Please check your number and try again."
         }
     }
 }

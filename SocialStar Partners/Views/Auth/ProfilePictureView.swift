@@ -5,54 +5,54 @@ import FirebaseFirestore
 import FirebaseAuth
 
 struct ProfilePictureView: View {
-    let email: String
-    let password: String
     let firstName: String
     let lastName: String
-    let phoneVerificationID: String
-    let phoneOTPCode: String
+    let email: String
 
     @State private var selectedItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
     @State private var isLoading = false
     @State private var errorMessage = ""
-    @State private var navigateToDashboard = false
 
     var body: some View {
         VStack(spacing: 30) {
             Text("Add Profile Picture")
                 .font(.system(size: 24, weight: .bold))
 
-            VStack(spacing: 20) {
-                ZStack {
-                    Circle()
-                        .fill(Color.gray.opacity(0.2))
+            Text("Add a photo so your followers can recognise you.")
+                .font(.system(size: 15))
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 16)
+
+            ZStack {
+                Circle()
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 120, height: 120)
+
+                if let selectedImage = selectedImage {
+                    Image(uiImage: selectedImage)
+                        .resizable()
+                        .scaledToFill()
                         .frame(width: 120, height: 120)
-
-                    if let selectedImage = selectedImage {
-                        Image(uiImage: selectedImage)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 120, height: 120)
-                            .clipShape(Circle())
-                    } else {
-                        Image(systemName: "person.circle.fill")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 60, height: 60)
-                            .foregroundColor(.gray)
-                    }
+                        .clipShape(Circle())
+                } else {
+                    Image(systemName: "person.circle.fill")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 60, height: 60)
+                        .foregroundColor(.gray)
                 }
+            }
 
-                PhotosPicker(
-                    selection: $selectedItem,
-                    matching: .images,
-                    photoLibrary: .shared()
-                ) {
-                    Text(selectedImage == nil ? "Choose Photo" : "Change Photo")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.blue)
-                }
+            PhotosPicker(
+                selection: $selectedItem,
+                matching: .images,
+                photoLibrary: .shared()
+            ) {
+                Text(selectedImage == nil ? "Choose Photo" : "Change Photo")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.blue)
             }
 
             if !errorMessage.isEmpty {
@@ -73,12 +73,11 @@ struct ProfilePictureView: View {
             } else {
                 Button(action: {
                     Analytics.shared.trackTap(
-                        elementId: "complete_profile_picture_button",
+                        elementId: "complete_setup_button",
                         screenName: "profile_picture_entry",
                         properties: ["has_image": selectedImage != nil]
                     )
-                    // Start with account creation, photo upload happens after auth
-                    createAccount()
+                    completeSetup()
                 }) {
                     Text("Complete Setup")
                         .frame(maxWidth: .infinity)
@@ -111,72 +110,21 @@ struct ProfilePictureView: View {
         .onAppear {
             Analytics.shared.trackScreen(name: "profile_picture_entry")
         }
-
-        NavigationLink(destination: MainTabView(), isActive: $navigateToDashboard) {
-            EmptyView()
-        }
-        .hidden()
     }
 
-    private func createAccount() {
+    private func completeSetup() {
+        guard let user = Auth.auth().currentUser else {
+            errorMessage = "No user session found. Please restart the app."
+            return
+        }
+
         isLoading = true
         errorMessage = ""
 
-        Auth.auth().createUser(withEmail: email, password: password) { result, error in
-            if let error = error {
-                errorMessage = error.localizedDescription
-                isLoading = false
-                return
-            }
-            guard let user = result?.user else {
-                errorMessage = "Failed to get user information"
-                isLoading = false
-                return
-            }
-            linkPhoneCredential(to: user)
-        }
-    }
-
-    private func linkPhoneCredential(to user: User) {
-        let credential = PhoneAuthProvider.provider().credential(
-            withVerificationID: phoneVerificationID,
-            verificationCode: phoneOTPCode
-        )
-
-        user.link(with: credential) { _, error in
-            if let error = error {
-                let code = (error as NSError).code
-
-                user.delete { _ in }
-                isLoading = false
-
-                if code == 17025 {
-                    errorMessage = "This phone number is already associated with an account. Please sign in instead."
-                    Analytics.shared.track(
-                        event: "phone_link_duplicate",
-                        properties: [AnalyticsProperty.screenName: "profile_picture_entry"]
-                    )
-                } else if code == 17044 || code == 17045 {
-                    errorMessage = "Your verification code has expired. Please go back and request a new one."
-                } else {
-                    errorMessage = "Phone verification failed. Please go back and try again."
-                    Analytics.shared.track(
-                        event: "phone_link_failed",
-                        properties: [
-                            AnalyticsProperty.screenName: "profile_picture_entry",
-                            AnalyticsProperty.errorMessage: error.localizedDescription
-                        ]
-                    )
-                }
-                return
-            }
-
-            // User is now authenticated — safe to upload photo
-            if let image = selectedImage {
-                uploadProfilePicture(image, for: user)
-            } else {
-                saveFirestoreDocument(for: user, profilePictureUrl: nil)
-            }
+        if let image = selectedImage {
+            uploadProfilePicture(image, for: user)
+        } else {
+            saveFirestoreDocument(for: user, profilePictureUrl: nil)
         }
     }
 
@@ -186,24 +134,39 @@ struct ProfilePictureView: View {
             return
         }
 
-        let profilePicturesRef = Storage.storage().reference()
-            .child("profile_pictures/\(UUID().uuidString).jpg")
+        let storageRef = Storage.storage().reference()
+            .child("profile_pictures/\(user.uid)_\(UUID().uuidString).jpg")
         let metadata = StorageMetadata()
         metadata.contentType = "image/jpeg"
 
-        profilePicturesRef.putData(imageData, metadata: metadata) { _, error in
+        storageRef.putData(imageData, metadata: metadata) { _, error in
             if let error = error {
                 DispatchQueue.main.async {
-                    self.errorMessage = "Failed to upload image: \(error.localizedDescription)"
-                    self.isLoading = false
+                    errorMessage = "Failed to upload image: \(error.localizedDescription)"
+                    isLoading = false
+                    Analytics.shared.track(
+                        event: "profile_picture_upload_failed",
+                        properties: [
+                            AnalyticsProperty.screenName: "profile_picture_entry",
+                            AnalyticsProperty.errorMessage: error.localizedDescription
+                        ]
+                    )
                 }
                 return
             }
-            profilePicturesRef.downloadURL { url, error in
+
+            storageRef.downloadURL { url, error in
                 if let error = error {
                     DispatchQueue.main.async {
-                        self.errorMessage = "Failed to get image URL: \(error.localizedDescription)"
-                        self.isLoading = false
+                        errorMessage = "Failed to get image URL: \(error.localizedDescription)"
+                        isLoading = false
+                        Analytics.shared.track(
+                            event: "profile_picture_url_failed",
+                            properties: [
+                                AnalyticsProperty.screenName: "profile_picture_entry",
+                                AnalyticsProperty.errorMessage: error.localizedDescription
+                            ]
+                        )
                     }
                     return
                 }
@@ -235,6 +198,13 @@ struct ProfilePictureView: View {
 
                 if let error = error {
                     errorMessage = "Failed to create account: \(error.localizedDescription)"
+                    Analytics.shared.track(
+                        event: "firestore_save_failed",
+                        properties: [
+                            AnalyticsProperty.screenName: "profile_picture_entry",
+                            AnalyticsProperty.errorMessage: error.localizedDescription
+                        ]
+                    )
                     return
                 }
 
@@ -247,7 +217,6 @@ struct ProfilePictureView: View {
                     ]
                 )
 
-                navigateToDashboard = true
                 NotificationCenter.default.post(name: .authStateDidChange, object: nil)
             }
         }

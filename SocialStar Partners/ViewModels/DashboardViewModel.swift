@@ -249,7 +249,7 @@ class DashboardViewModel: ObservableObject {
             }
     }
     
-    func uploadLinkPhoto(_ image: UIImage, for link: RatingLink) {
+    func uploadLinkPhoto(_ image: UIImage, for link: RatingLink, assetIdentifier: String? = nil) {
         guard let userId = Auth.auth().currentUser?.uid,
               let imageData = image.optimizedForUpload() else { return }
         
@@ -304,13 +304,13 @@ class DashboardViewModel: ObservableObject {
                     }
                     
                     // Update Firestore with new photo URL
-                    self?.updateLinkPhotoUrl(url?.absoluteString, for: link)
+                    self?.updateLinkPhotoUrl(url?.absoluteString, for: link, assetIdentifier: assetIdentifier)
                 }
             }
         }
     }
     
-    private func updateLinkPhotoUrl(_ url: String?, for link: RatingLink) {
+    private func updateLinkPhotoUrl(_ url: String?, for link: RatingLink, assetIdentifier: String? = nil) {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
         let db = Firestore.firestore()
@@ -320,6 +320,9 @@ class DashboardViewModel: ObservableObject {
             updateData["photoUrl"] = url
         } else {
             updateData["photoUrl"] = NSNull()
+        }
+        if let identifier = assetIdentifier {
+            updateData["photoAssetIdentifier"] = identifier
         }
         
         // Find the document by linkId and affiliateId

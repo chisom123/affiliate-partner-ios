@@ -385,9 +385,13 @@ struct UseLinkInstructionsView: View {
     @State private var showExamples = false
     @StateObject private var pricingCalculator = AffiliatePricingCalculator.shared
     
-    private var copyLinkStepNumber: Int { hasBonusPhoto ? 3 : 4 }
-    private var addToStoryStepNumber: Int { hasBonusPhoto ? 4 : 5 }
-    private var startEarningStepNumber: Int { hasBonusPhoto ? 5 : 6 }
+    private var currentLink: RatingLink {
+        viewModel.ratingLinks.first(where: { $0.id == link.id }) ?? link
+    }
+    
+    private var copyLinkStepNumber: Int { 4 }
+    private var addToStoryStepNumber: Int { 5 }
+    private var startEarningStepNumber: Int { 6 }
 
     // Photo upload states
     @State private var selectedPhotoItem: PhotosPickerItem?
@@ -401,7 +405,10 @@ struct UseLinkInstructionsView: View {
 
     // Bonus photo state
     @State private var hasBonusPhoto = false
-    @State private var showBonusPhotoView = false
+    @State private var selectedBonusPhotoItem: PhotosPickerItem?
+    @State private var uploadedBonusPhoto: UIImage?
+    @State private var isUploadingBonusPhoto = false
+    @State private var bonusPhotoError = ""
 
     private var photoIsUploaded: Bool { hasUploadedPhoto || link.photoUrl != nil }
     private var themeIsSelected: Bool { selectedTheme != nil || link.theme != nil }
@@ -498,7 +505,7 @@ struct UseLinkInstructionsView: View {
 
                     uploadPhotoStepView
                     selectThemeStepView
-                    if !hasBonusPhoto { bonusPhotoStepView }
+                    bonusPhotoStepView
                     copyLinkStepView
                     addToStoryStepView
                     startEarningStepView
@@ -528,19 +535,6 @@ struct UseLinkInstructionsView: View {
                     if let theme = selectedTheme { viewModel.updateLinkTheme(link: link, theme: theme) }
                 }
         }
-        .sheet(isPresented: $showBonusPhotoView, onDismiss: {
-            loadBonusPhotoStatus()
-        }) {
-            NavigationView {
-                UnseenPhotoView(unseenPhotoUrl: nil, onUploadSuccess: {
-                    hasBonusPhoto = true
-                })
-                .navigationBarItems(trailing: Button("Done") {
-                    showBonusPhotoView = false
-                }
-                .fontWeight(.semibold))
-            }
-        }
         .onAppear {
             if !hasTrackedView {
                 Analytics.shared.trackScreen(name: "link_instructions", properties: ["link_id": link.id, "link_earnings": link.earnings, "link_rating_count": link.ratingCount, "link_is_active": link.isActive, "has_photo": link.photoUrl != nil, "has_theme": link.theme != nil])
@@ -548,31 +542,106 @@ struct UseLinkInstructionsView: View {
             }
             if link.photoUrl != nil { hasUploadedPhoto = true }
             if let theme = link.theme { selectedTheme = theme }
-            loadBonusPhotoStatus()
+            hasBonusPhoto = !(currentLink.bonusPhotoUrl?.isEmpty ?? true)
         }
         .onChange(of: selectedPhotoItem) { newItem in
             Task {
-                if let data = try? await newItem?.loadTransferable(type: Data.self), let image = UIImage(data: data) {
-                    await MainActor.run { uploadedPhoto = image; isUploadingPhoto = true; viewModel.uploadLinkPhoto(image, for: link) }
+                if let data = try? await newItem?.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    await MainActor.run {
+                        uploadedPhoto = image
+                        hasUploadedPhoto = true  // ADD THIS — set immediately on pick
+                        viewModel.uploadLinkPhoto(image, for: link, assetIdentifier: newItem?.itemIdentifier)
+                    }
                 }
             }
         }
-        .onChange(of: viewModel.isUploadingPhoto) { uploading in
-            if !uploading && uploadedPhoto != nil { hasUploadedPhoto = true }
+        .onChange(of: selectedBonusPhotoItem) { newItem in
+            Task {
+                // Check if same photo as story photo
+                let newIdentifier = newItem?.itemIdentifier
+                let storyIdentifier = selectedPhotoItem?.itemIdentifier ?? currentLink.photoAssetIdentifier
+
+                if let newIdentifier, let storyIdentifier, newIdentifier == storyIdentifier {
+                    await MainActor.run {
+                        selectedBonusPhotoItem = nil
+                        bonusPhotoError = "Bonus photo can't be the same as your story photo"
+                    }
+                    return
+                }
+
+                if let data = try? await newItem?.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    await MainActor.run {
+                        bonusPhotoError = ""
+                        uploadedBonusPhoto = image
+                        isUploadingBonusPhoto = true
+                        hasBonusPhoto = true
+                        uploadBonusPhoto(image, identifier: newItem?.itemIdentifier)
+                    }
+                }
+            }
         }
     }
+    
+    private func uploadBonusPhoto(_ image: UIImage, identifier: String?) {
+        guard let userId = Auth.auth().currentUser?.uid,
+              let imageData = image.optimizedForUpload() else {
+            isUploadingBonusPhoto = false
+            return
+        }
 
-    // ── Load bonus photo status from affiliate document ───────────────────────
-    private func loadBonusPhotoStatus() {
-        guard let userId = Auth.auth().currentUser?.uid else { return }
-        Firestore.firestore().collection("affiliates").document(userId).getDocument { document, _ in
-            DispatchQueue.main.async {
-                let url = document?.data()?["unseenPhotoUrl"] as? String
-                hasBonusPhoto = !(url?.isEmpty ?? true)
-                Analytics.shared.track(
-                    event: "bonus_photo_status_loaded",
-                    properties: [AnalyticsProperty.screenName: "link_instructions", "has_bonus_photo": hasBonusPhoto]
-                )
+        let storage = Storage.storage()
+        let ref = storage.reference().child("unseen_photos/\(userId)_\(link.id)")
+        let metadata = StorageMetadata()
+        metadata.contentType = "image/jpeg"
+
+        ref.putData(imageData, metadata: metadata) { metadata, error in
+            if let error = error {
+                print("Bonus photo upload error: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    isUploadingBonusPhoto = false
+                    uploadedBonusPhoto = nil
+                    hasBonusPhoto = false
+                }
+                return
+            }
+
+            print("Bonus photo uploaded, getting download URL...")
+
+            ref.downloadURL { url, error in
+                if let error = error {
+                    print("Bonus photo URL error: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        isUploadingBonusPhoto = false
+                    }
+                    return
+                }
+
+                guard let urlString = url?.absoluteString else {
+                    print("Bonus photo URL was nil")
+                    DispatchQueue.main.async {
+                        isUploadingBonusPhoto = false
+                    }
+                    return
+                }
+
+                print("Bonus photo URL: \(urlString), saving to link \(link.id)")
+
+                Firestore.firestore().collection("rating_links").document(link.id).updateData([
+                    "bonusPhotoUrl": urlString
+                ]) { error in
+                    DispatchQueue.main.async {
+                        isUploadingBonusPhoto = false
+                        if let error = error {
+                            print("Firestore bonus photo save error: \(error.localizedDescription)")
+                            hasBonusPhoto = false
+                        } else {
+                            print("Bonus photo saved successfully")
+                            hasBonusPhoto = true
+                        }
+                    }
+                }
             }
         }
     }
@@ -635,7 +704,6 @@ struct UseLinkInstructionsView: View {
                         Image(systemName: "tag.fill").font(.system(size: 16)).foregroundColor(.blue)
                         Text(theme).font(.system(size: 16, weight: .medium)).foregroundColor(.primary)
                         Spacer()
-                        Image(systemName: "checkmark.circle.fill").font(.system(size: 20)).foregroundColor(.green)
                     }
                     .padding().background(Color.blue.opacity(0.1)).cornerRadius(8)
                 } else {
@@ -677,35 +745,52 @@ struct UseLinkInstructionsView: View {
             }
 
             Text(themeIsSelected
-                 ? "Upload a bonus photo for your followers to rate"
+                 ? "Upload a bonus photo for your followers to view"
                  : "Select a theme first to unlock this step")
                 .font(.system(size: 16)).foregroundColor(.gray)
 
-            if hasBonusPhoto {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 20)).foregroundColor(.green)
-                    Text("Bonus photo uploaded").font(.system(size: 16, weight: .medium)).foregroundColor(.primary)
-                    Spacer()
-                }
-                .padding().background(Color.green.opacity(0.1)).cornerRadius(8)
-            }
+            if themeIsSelected {
+                VStack(spacing: 12) {
+                    // Preview
+                    if isUploadingBonusPhoto {
+                        RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.2)).frame(height: 200)
+                            .overlay(ProgressView().scaleEffect(1.2).progressViewStyle(CircularProgressViewStyle(tint: .black)))
+                    } else if let bonusPhotoUrl = currentLink.bonusPhotoUrl, !bonusPhotoUrl.isEmpty {
+                        AsyncImage(url: URL(string: bonusPhotoUrl)) { image in
+                            image.resizable().scaledToFill()
+                                .frame(height: 200).frame(maxWidth: .infinity)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        } placeholder: {
+                            RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.2)).frame(height: 200)
+                        }
+                    } else if let uploadedBonusPhoto {
+                        Image(uiImage: uploadedBonusPhoto)
+                            .resizable().scaledToFill()
+                            .frame(height: 200).frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    } else {
+                        RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.1)).frame(height: 200)
+                            .overlay(VStack(spacing: 8) {
+                                Image(systemName: "photo").font(.system(size: 40)).foregroundColor(.gray)
+                            })
+                    }
 
-            Button(action: {
-                Analytics.shared.trackTap(
-                    elementId: hasBonusPhoto ? "change_bonus_photo_button" : "upload_bonus_photo_button",
-                    screenName: "link_instructions",
-                    properties: ["link_id": link.id, "has_bonus_photo": hasBonusPhoto]
-                )
-                showBonusPhotoView = true
-            }) {
-                Text(hasBonusPhoto ? "Change Bonus Photo" : (themeIsSelected ? "Upload Bonus Photo" : "Select Theme First"))
-                    .font(.system(size: 16, weight: .bold))
-                    .frame(maxWidth: .infinity).padding(.vertical, 12)
-                    .background(themeIsSelected ? Color.blue : Color.gray.opacity(0.4))
-                    .foregroundColor(themeIsSelected ? .white : Color.gray.opacity(0.7))
-                    .cornerRadius(8)
+                    PhotosPicker(selection: $selectedBonusPhotoItem, matching: .images, photoLibrary: .shared()) {
+                        Text(hasBonusPhoto ? "Change Bonus Photo" : "Upload Bonus Photo")
+                            .font(.system(size: 16, weight: .bold))
+                            .frame(maxWidth: .infinity).padding(.vertical, 12)
+                            .background(Color.blue).foregroundColor(.white).cornerRadius(8)
+                    }
+                    .disabled(isUploadingBonusPhoto)
+                    
+                    if !bonusPhotoError.isEmpty {
+                        Text(bonusPhotoError)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundColor(.red)
+                            .padding(.vertical)
+                    }
+                }
             }
-            .disabled(!themeIsSelected)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
