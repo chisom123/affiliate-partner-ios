@@ -1,11 +1,10 @@
-// LinksView.swift — pay-per-view UI, no themes, silent AI scoring
-
 import SwiftUI
 import FirebaseFirestore
 import FirebaseAuth
 import PhotosUI
 import FirebaseStorage
-import FirebaseFunctions
+
+// MARK: - LinksView
 
 struct LinksView: View {
     @StateObject private var viewModel = DashboardViewModel()
@@ -48,7 +47,11 @@ struct LinksView: View {
 
                         } else {
                             ForEach(viewModel.ratingLinks.sorted(by: { $0.createdAt > $1.createdAt })) { link in
-                                LinkCard(link: link, onUseLink: { selectedLinkForInstructions = link })
+                                LinkCard(
+                                    link: link,
+                                    onUseLink: { selectedLinkForInstructions = link },
+                                    onUpdateTitle: { newTitle in viewModel.updateLinkTitle(link: link, newTitle: newTitle) }
+                                )
                             }
                         }
                     }
@@ -117,18 +120,52 @@ struct LinksView: View {
 struct LinkCard: View {
     let link: RatingLink
     let onUseLink: () -> Void
+    let onUpdateTitle: (String) -> Void
+
+    @State private var isEditingTitle = false
+    @State private var editingTitle = ""
+    @FocusState private var isTitleFieldFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading) {
-                    Text(link.title).font(.system(size: 16, weight: .bold))
+                    if isEditingTitle {
+                        TextField("Link Title", text: $editingTitle)
+                            .font(.system(size: 16, weight: .bold))
+                            .padding(.bottom, 8)
+                            .background(VStack { Spacer(); Capsule().frame(height: 1).foregroundColor(Color(hex: "C8C8C8")) })
+                            .focused($isTitleFieldFocused)
+                            .submitLabel(.done)
+                            .onSubmit { saveTitle() }
+                            .padding(.bottom, 8)
+                            .onAppear {
+                                editingTitle = link.title
+                                isTitleFieldFocused = true
+                                Analytics.shared.track(event: "link_title_edit_started", properties: [AnalyticsProperty.screenName: "links", "link_id": link.id, "current_title": link.title])
+                            }
+                    } else {
+                        HStack(spacing: 8) {
+                            Text(link.title)
+                                .font(.system(size: 16, weight: .bold))
+                            
+                            Image("pencil")
+                                .resizable()
+                                .renderingMode(.template)
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 15, height: 15)
+                                .foregroundColor(.gray)
+                        }
+                        .onTapGesture { isEditingTitle = true; editingTitle = link.title }
+                    }
                     Text(timeAgoString(from: link.createdAt)).font(.system(size: 12)).foregroundColor(.gray)
                 }
-                Spacer()
-                Image(systemName: link.isActive ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .font(.system(size: 18))
-                    .foregroundColor(link.isActive ? .green : .red)
+                if !isEditingTitle {
+                    Spacer()
+                    Image(systemName: link.isActive ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(link.isActive ? .green : .red)
+                }
             }
 
             HStack(spacing: 16) {
@@ -140,15 +177,24 @@ struct LinkCard: View {
                 .background(Color.green.opacity(0.1)).cornerRadius(6)
 
                 VStack(alignment: .center, spacing: 4) {
-                    Text("\(link.totalPageViews)").font(.system(size: 18, weight: .bold)).foregroundColor(.blue)
-                    Text("Clicks").font(.system(size: 12)).foregroundColor(.gray)
+                    HStack(spacing: 6) {
+                        Text("\(link.averageRating, specifier: "%.1f")").font(.system(size: 18, weight: .bold))
+                            .foregroundColor(link.hasRatings ? .orange : .gray)
+                        HStack(spacing: 2) {
+                            ForEach(1...5, id: \.self) { star in
+                                Text("★").font(.system(size: 13))
+                                    .foregroundColor(link.hasRatings && Double(star) <= link.averageRating.rounded() ? .orange : .gray.opacity(0.4))
+                            }
+                        }
+                    }
+                    Text("\(link.ratingCount) rating\(link.ratingCount != 1 ? "s" : "")").font(.system(size: 12)).foregroundColor(.gray)
                 }
                 .frame(maxWidth: .infinity, minHeight: 60)
-                .background(Color.blue.opacity(0.1)).cornerRadius(6)
+                .background(Color.orange.opacity(0.1)).cornerRadius(6)
             }
 
             if link.isActive {
-                Button(action: { onUseLink() }) {
+                Button(action: onUseLink) {
                     Text("Use Link").font(.system(size: 16, weight: .bold))
                         .frame(maxWidth: .infinity).padding(.vertical, 12)
                         .background(Color.blue).foregroundColor(.white).cornerRadius(8)
@@ -156,6 +202,14 @@ struct LinkCard: View {
             }
         }
         .padding().background(Color.gray.opacity(0.1)).cornerRadius(8)
+        .onTapGesture { if isEditingTitle { saveTitle() } }
+    }
+
+    private func saveTitle() {
+        let trimmed = editingTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty && trimmed != link.title { onUpdateTitle(trimmed) }
+        isEditingTitle = false
+        isTitleFieldFocused = false
     }
 
     private func timeAgoString(from date: Date) -> String {
@@ -174,17 +228,25 @@ struct UseLinkInstructionsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showCopiedMessage = false
-    @State private var selectedPhotoItem: PhotosPickerItem?
-    @State private var uploadedPhoto: UIImage?
     @State private var showExamples = false
     @StateObject private var pricingCalculator = AffiliatePricingCalculator.shared
-    @State private var calculatorViews = 30.0
+    @State private var calculatorRatings = 30.0
+
+    // Story photo
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var uploadedPhoto: UIImage?
+
+    // Bonus photo
+    @State private var selectedBonusPhotoItem: PhotosPickerItem?
+    @State private var uploadedBonusPhoto: UIImage?
+    @State private var bonusPhotoError = ""
 
     private var currentLink: RatingLink {
         viewModel.ratingLinks.first(where: { $0.id == link.id }) ?? link
     }
 
-    private var photoIsUploaded: Bool { currentLink.photoUrl != nil || uploadedPhoto != nil }
+    private var storyPhotoUploaded: Bool { currentLink.photoUrl != nil || uploadedPhoto != nil }
+    private var bonusPhotoUploaded: Bool { !(currentLink.bonusPhotoUrl?.isEmpty ?? true) || uploadedBonusPhoto != nil }
     private var canCopyLink: Bool { currentLink.isReadyToShare }
 
     var body: some View {
@@ -193,7 +255,8 @@ struct UseLinkInstructionsView: View {
                 VStack(spacing: 24) {
                     Text("How to Use Link").font(.system(size: 24, weight: .bold)).padding(.bottom)
 
-                    uploadPhotoStep
+                    storyPhotoStep
+                    bonusPhotoStep
                     copyLinkStep
                     addToStoryStep
                     startEarningStep
@@ -208,6 +271,11 @@ struct UseLinkInstructionsView: View {
             }
         }
         .sheet(isPresented: $showExamples) { ExamplesView() }
+        .onAppear {
+            // Reflect any already-uploaded photos
+            if link.photoUrl != nil, uploadedPhoto == nil { /* listener covers it */ }
+        }
+        // Story photo picker
         .onChange(of: selectedPhotoItem) { newItem in
             Task {
                 if let data = try? await newItem?.loadTransferable(type: Data.self),
@@ -219,31 +287,63 @@ struct UseLinkInstructionsView: View {
                 }
             }
         }
+        // Bonus photo picker — prevent same-as-story photo
+        .onChange(of: selectedBonusPhotoItem) { newItem in
+            Task {
+                let newIdentifier   = newItem?.itemIdentifier
+                let storyIdentifier = selectedPhotoItem?.itemIdentifier ?? currentLink.photoAssetIdentifier
+
+                // Block same photo being used for both slots
+                if let newId = newIdentifier, let storyId = storyIdentifier, newId == storyId {
+                    await MainActor.run {
+                        selectedBonusPhotoItem = nil
+                        bonusPhotoError = "Bonus photo must be different from your story photo."
+                    }
+                    return
+                }
+
+                if let data = try? await newItem?.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    await MainActor.run {
+                        bonusPhotoError = ""
+                        uploadedBonusPhoto = image
+                        viewModel.uploadBonusPhoto(image, for: link, identifier: newItem?.itemIdentifier) { success in
+                            if !success { uploadedBonusPhoto = nil }
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    // MARK: Step views
+    // MARK: - Step 1: Story Photo
 
-    private var uploadPhotoStep: some View {
+    private var storyPhotoStep: some View {
         VStack(alignment: .leading, spacing: 15) {
-            HStack { Text("1").font(.system(size: 22, weight: .bold)).foregroundColor(.green); Text("Upload Bonus Photo").font(.system(size: 18, weight: .semibold)) }
-            Text("Upload your bonus photo").font(.system(size: 16)).foregroundColor(.gray)
+            HStack {
+                Text("1").font(.system(size: 22, weight: .bold)).foregroundColor(.green)
+                Text("Upload Story Photo").font(.system(size: 18, weight: .semibold))
+            }
+            Text("Upload the photo you'll share in your Instagram story")
+                .font(.system(size: 16)).foregroundColor(.gray)
+
             VStack(spacing: 12) {
                 if viewModel.isUploadingPhoto {
-                    RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.2)).frame(height: 200)
-                        .overlay(ProgressView().scaleEffect(1.2))
-                } else if let url = currentLink.photoUrl, !url.isEmpty {
-                    AsyncImage(url: URL(string: url)) { img in
-                        img.resizable().scaledToFill().frame(height: 200).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 8))
-                    } placeholder: { RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.2)).frame(height: 200) }
+                    photoPlaceholder.overlay(ProgressView().scaleEffect(1.2))
+                } else if let urlString = currentLink.photoUrl, !urlString.isEmpty {
+                    AsyncImage(url: URL(string: urlString)) { img in
+                        img.resizable().scaledToFill().frame(height: 200).frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    } placeholder: { photoPlaceholder }
                 } else if let photo = uploadedPhoto {
-                    Image(uiImage: photo).resizable().scaledToFill().frame(height: 200).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 8))
+                    Image(uiImage: photo).resizable().scaledToFill().frame(height: 200).frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                 } else {
-                    RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.1)).frame(height: 200)
-                        .overlay(Image(systemName: "photo").font(.system(size: 40)).foregroundColor(.gray))
+                    photoPlaceholder
                 }
 
                 PhotosPicker(selection: $selectedPhotoItem, matching: .images, photoLibrary: .shared()) {
-                    Text(photoIsUploaded ? "Change Photo" : "Upload Photo")
+                    Text(storyPhotoUploaded ? "Change Photo" : "Upload Photo")
                         .font(.system(size: 16, weight: .bold)).frame(maxWidth: .infinity).padding(.vertical, 12)
                         .background(Color.blue).foregroundColor(.white).cornerRadius(8)
                 }
@@ -254,30 +354,75 @@ struct UseLinkInstructionsView: View {
         .background(Color.gray.opacity(0.1)).cornerRadius(8)
     }
 
-    private var copyLinkStep: some View {
+    // MARK: - Step 2: Bonus Photo
+
+    private var bonusPhotoStep: some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack {
                 Text("2").font(.system(size: 22, weight: .bold)).foregroundColor(.green)
-                Text("Copy Link").font(.system(size: 18, weight: .semibold))
-                Spacer()
-                if currentLink.aiScoring {
-                    HStack(spacing: 6) {
-                        ProgressView().scaleEffect(0.7).tint(.gray)
-                        Text("Please wait...")
-                            .font(.system(size: 12, weight: .semibold)).foregroundColor(.gray)
+                Text("Upload Bonus Photo").font(.system(size: 18, weight: .semibold))
+            }
+            Text(storyPhotoUploaded
+                 ? "Upload a different bonus photo your followers will unlock"
+                 : "Upload your story photo first to unlock this step")
+                .font(.system(size: 16)).foregroundColor(.gray)
+
+            if storyPhotoUploaded {
+                VStack(spacing: 12) {
+                    if viewModel.isUploadingBonusPhoto {
+                        photoPlaceholder.overlay(ProgressView().scaleEffect(1.2))
+                    } else if let urlString = currentLink.bonusPhotoUrl, !urlString.isEmpty {
+                        AsyncImage(url: URL(string: urlString)) { img in
+                            img.resizable().scaledToFill().frame(height: 200).frame(maxWidth: .infinity)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        } placeholder: { photoPlaceholder }
+                    } else if let photo = uploadedBonusPhoto {
+                        Image(uiImage: photo).resizable().scaledToFill().frame(height: 200).frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    } else {
+                        photoPlaceholder
                     }
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(Color.gray.opacity(0.15)).cornerRadius(100)
+
+                    PhotosPicker(selection: $selectedBonusPhotoItem, matching: .images, photoLibrary: .shared()) {
+                        Text(bonusPhotoUploaded ? "Change Bonus Photo" : "Upload Bonus Photo")
+                            .font(.system(size: 16, weight: .bold)).frame(maxWidth: .infinity).padding(.vertical, 12)
+                            .background(Color.blue).foregroundColor(.white).cornerRadius(8)
+                    }
+                    .disabled(viewModel.isUploadingBonusPhoto)
+
+                    if !bonusPhotoError.isEmpty {
+                        Text(bonusPhotoError).font(.system(size: 14, weight: .semibold)).foregroundColor(.red)
+                    }
                 }
             }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading).padding()
+        .background(Color.gray.opacity(0.1)).cornerRadius(8)
+        .opacity(storyPhotoUploaded ? 1.0 : 0.5)
+    }
 
-            Text("https://\(currentLink.url)").frame(maxWidth: .infinity).padding(15)
+    // MARK: - Step 3: Copy Link
+
+    private var copyLinkStep: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack {
+                Text("3").font(.system(size: 22, weight: .bold)).foregroundColor(.green)
+                Text("Copy Link").font(.system(size: 18, weight: .semibold))
+            }
+            Text(canCopyLink
+                 ? "Copy your unique rating link"
+                 : (storyPhotoUploaded ? "Upload your bonus photo to unlock your link" : "Upload both photos to unlock your link"))
+                .font(.system(size: 16)).foregroundColor(.gray)
+
+            Text("https://\(currentLink.url)")
+                .frame(maxWidth: .infinity).padding(15)
                 .background(Color.gray.opacity(0.1)).cornerRadius(8)
-                .opacity(canCopyLink ? 1.0 : 0.5)
+                .opacity(canCopyLink ? 1.0 : 0.4)
 
             Button(action: copyLink) {
-                Text(showCopiedMessage ? "Link Copied" : (canCopyLink ? "Copy Link" : "Upload Photo First"))
-                    .font(.system(size: 16, weight: .bold)).frame(maxWidth: .infinity).padding(.vertical, 12)
+                Text(showCopiedMessage ? "Link Copied" : (canCopyLink ? "Copy Link" : "Upload Both Photos First"))
+                    .font(.system(size: 16, weight: .bold))
+                    .frame(maxWidth: .infinity).padding(.vertical, 12)
                     .background(showCopiedMessage ? Color.green : (canCopyLink ? Color.blue : Color.gray.opacity(0.4)))
                     .foregroundColor(canCopyLink ? .white : Color.gray.opacity(0.7)).cornerRadius(8)
             }
@@ -285,15 +430,22 @@ struct UseLinkInstructionsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding()
         .background(Color.gray.opacity(0.1)).cornerRadius(8)
-        .opacity(photoIsUploaded ? 1.0 : 0.5)
+        .opacity(canCopyLink ? 1.0 : 0.5)
     }
+
+    // MARK: - Step 4: Add to Story
 
     private var addToStoryStep: some View {
         VStack(alignment: .leading, spacing: 15) {
-            HStack { Text("3").font(.system(size: 22, weight: .bold)).foregroundColor(.green); Text("Add Link to Story").font(.system(size: 18, weight: .semibold)) }
-            Text("Add the link to your Instagram Story").font(.system(size: 16)).foregroundColor(.gray)
+            HStack {
+                Text("4").font(.system(size: 22, weight: .bold)).foregroundColor(.green)
+                Text("Add Link to Story").font(.system(size: 18, weight: .semibold))
+            }
+            Text("Add the link to your Instagram story when sharing your photo")
+                .font(.system(size: 16)).foregroundColor(.gray)
             Button(action: { showExamples = true }) {
-                Text("See Examples").font(.system(size: 16, weight: .bold)).frame(maxWidth: .infinity).padding(.vertical, 12)
+                Text("See Examples").font(.system(size: 16, weight: .bold))
+                    .frame(maxWidth: .infinity).padding(.vertical, 12)
                     .background(Color.blue).foregroundColor(.white).cornerRadius(8)
             }
         }
@@ -301,10 +453,15 @@ struct UseLinkInstructionsView: View {
         .background(Color.gray.opacity(0.1)).cornerRadius(8)
     }
 
+    // MARK: - Step 5: Start Earning
+
     private var startEarningStep: some View {
         VStack(alignment: .leading, spacing: 15) {
-            HStack { Text("4").font(.system(size: 22, weight: .bold)).foregroundColor(.green); Text("Start Earning").font(.system(size: 18, weight: .semibold)) }
-            Text("Earn \(pricingCalculator.formatEarnings(pricingCalculator.getEarningsPerRating())) every time your link is clicked")
+            HStack {
+                Text("5").font(.system(size: 22, weight: .bold)).foregroundColor(.green)
+                Text("Start Earning").font(.system(size: 18, weight: .semibold))
+            }
+            Text("Make \(pricingCalculator.formatEarnings(pricingCalculator.getEarningsPerRating())) every time your story is rated")
                 .font(.system(size: 16)).foregroundColor(.gray)
             earningsCalculator
         }
@@ -312,34 +469,44 @@ struct UseLinkInstructionsView: View {
         .background(Color.gray.opacity(0.1)).cornerRadius(8)
     }
 
+    // MARK: - Earnings Calculator
+
     private var earningsCalculator: some View {
         VStack(spacing: 16) {
             HStack {
-                Text("Clicks").font(.system(size: 15, weight: .medium)).foregroundColor(.secondary)
+                Text("Ratings").font(.system(size: 15, weight: .medium)).foregroundColor(.secondary)
                 Spacer()
-                Text("\(Int(calculatorViews))").font(.system(size: 18, weight: .bold))
+                Text("\(Int(calculatorRatings))").font(.system(size: 18, weight: .bold))
             }
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4).fill(Color.gray.opacity(0.2)).frame(height: 6)
-                    RoundedRectangle(cornerRadius: 4).fill(Color.blue).frame(width: geometry.size.width * CGFloat((calculatorViews - 10) / 90), height: 6)
+                    RoundedRectangle(cornerRadius: 4).fill(Color.blue)
+                        .frame(width: geometry.size.width * CGFloat((calculatorRatings - 10) / 90), height: 6)
                     Circle().fill(Color.blue).frame(width: 22, height: 22)
                         .overlay(Circle().stroke(Color.white, lineWidth: 2.5))
-                        .offset(x: geometry.size.width * CGFloat((calculatorViews - 10) / 90) - 11)
+                        .offset(x: geometry.size.width * CGFloat((calculatorRatings - 10) / 90) - 11)
                         .gesture(DragGesture(minimumDistance: 0).onChanged { value in
                             let pct = max(0, min(1, value.location.x / geometry.size.width))
-                            calculatorViews = round((10 + pct * 90) / 10) * 10
+                            calculatorRatings = round((10 + pct * 90) / 10) * 10
                         })
                 }
             }.frame(height: 24)
             HStack {
                 Text("Earnings").font(.system(size: 15, weight: .medium)).foregroundColor(.secondary)
                 Spacer()
-                Text(pricingCalculator.formatEarnings(calculatorViews * pricingCalculator.getEarningsPerRating()))
+                Text(pricingCalculator.formatEarnings(calculatorRatings * pricingCalculator.getEarningsPerRating()))
                     .font(.system(size: 18, weight: .bold)).foregroundColor(.green)
             }
         }
         .padding().background(Color.gray.opacity(0.1)).cornerRadius(8)
+    }
+
+    // MARK: - Helpers
+
+    private var photoPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.1)).frame(height: 200)
+            .overlay(Image(systemName: "photo").font(.system(size: 40)).foregroundColor(.gray))
     }
 
     private func copyLink() {
@@ -365,23 +532,27 @@ struct ExamplesView: View {
                 ZStack {
                     TabView(selection: $currentIndex) {
                         ForEach(0..<exampleImages.count, id: \.self) { index in
-                            Image(exampleImages[index]).resizable().aspectRatio(contentMode: .fit).tag(index).cornerRadius(8).padding(.horizontal, 70)
+                            Image(exampleImages[index]).resizable().aspectRatio(contentMode: .fit)
+                                .tag(index).cornerRadius(8).padding(.horizontal, 70)
                         }
                     }
                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                     HStack {
                         Button(action: { withAnimation { currentIndex = max(0, currentIndex - 1) } }) {
-                            Image(systemName: "chevron.left").font(.title2).fontWeight(.bold).foregroundColor(currentIndex > 0 ? .blue : .gray).padding()
+                            Image(systemName: "chevron.left").font(.title2).fontWeight(.bold)
+                                .foregroundColor(currentIndex > 0 ? .blue : .gray).padding()
                         }
                         .disabled(currentIndex == 0)
                         Spacer()
                         Button(action: { withAnimation { currentIndex = min(exampleImages.count - 1, currentIndex + 1) } }) {
-                            Image(systemName: "chevron.right").font(.title2).fontWeight(.bold).foregroundColor(currentIndex < exampleImages.count - 1 ? .blue : .gray).padding()
+                            Image(systemName: "chevron.right").font(.title2).fontWeight(.bold)
+                                .foregroundColor(currentIndex < exampleImages.count - 1 ? .blue : .gray).padding()
                         }
                         .disabled(currentIndex == exampleImages.count - 1)
                     }
                 }
-                Text("\(currentIndex + 1) of \(exampleImages.count)").foregroundColor(.gray).font(.system(size: 15, weight: .semibold)).padding(.vertical, 8)
+                Text("\(currentIndex + 1) of \(exampleImages.count)")
+                    .foregroundColor(.gray).font(.system(size: 15, weight: .semibold)).padding(.vertical, 8)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

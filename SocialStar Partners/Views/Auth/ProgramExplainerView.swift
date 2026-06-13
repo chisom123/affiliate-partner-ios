@@ -13,14 +13,20 @@ struct ProgramExplainerView: View {
         return [
             ExplainerStep(
                 imageName: "explain1",
-                title: "Add Link",
+                title: "Add Rating Link",
                 description: "Simply add our link to your Instagram story",
+                showCalculator: false
+            ),
+            ExplainerStep(
+                imageName: "explain2",
+                title: "Get Ratings",
+                description: "Your followers tap the link and rate your story",
                 showCalculator: false
             ),
             ExplainerStep(
                 imageName: "",
                 title: "Get Paid",
-                description: "Make \(formattedEarnings) every time your link is clicked",
+                description: "Make \(formattedEarnings) every time your story is rated",
                 showCalculator: true
             )
         ]
@@ -195,7 +201,7 @@ struct ProgramExplainerView: View {
         VStack(spacing: 0) {
             VStack(spacing: 15) {
                 HStack {
-                    Text("Number of Clicks")
+                    Text("Number of Ratings")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(.secondary)
 
@@ -214,7 +220,7 @@ struct ProgramExplainerView: View {
             .cornerRadius(12, corners: [.topLeft, .topRight])
 
             VStack(spacing: 8) {
-                Text("Earnings")
+                Text("Story Earnings")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(.gray)
 
